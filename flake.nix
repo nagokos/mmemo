@@ -15,7 +15,7 @@
     in
     {
       devShells.${system}.default = pkgs.mkShell {
-        packges = [ pkgs.hello ];
+        packages = [ pkgs.hello ];
       };
       nixpkgs.${system}.default = pkgs.hello;
     };
