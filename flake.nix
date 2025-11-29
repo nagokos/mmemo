@@ -1,22 +1,69 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixpkgs-unstable";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     inputs@{
       self,
+      rust-overlay,
       nixpkgs,
       ...
     }:
     let
-      system = "aarch64-darwin";
-      pkgs = nixpkgs.legacyPackages.${system};
+      systems = [
+        "aarch64-darwin"
+        "x86_64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
+
+      forAllSystems =
+        f:
+        nixpkgs.lib.genAttrs systems (
+          system:
+          f rec {
+            pkgs = import nixpkgs {
+              inherit system;
+              overlays = [ rust-overlay.overlays.default ];
+            };
+
+            rust-toolchain = (
+              with pkgs.rust-bin;
+              [
+                (stable.latest.minimal.override {
+                  extensions = [
+                    "clippy"
+                    "rust-src"
+                  ];
+                })
+
+                nightly.latest.rustfmt
+                nightly.latest.rust-analyzer
+              ]
+            );
+          }
+        );
     in
     {
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs.hello ];
-      };
-      nixpkgs.${system}.default = pkgs.hello;
+
+      devShells = forAllSystems (
+        { pkgs, rust-toolchain }:
+        {
+          default =
+            with pkgs;
+            mkShell {
+              packages = [
+              ]
+              ++ rust-toolchain;
+            };
+        }
+      );
+
+      formatter = forAllSystems ({ pkgs, ... }: pkgs.nixfmt-rfc-style);
     };
 }
