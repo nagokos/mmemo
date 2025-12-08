@@ -1,8 +1,8 @@
 use std::{
     fmt::Display,
-    fs::File,
-    io::Read,
-    path::{Path, PathBuf},
+    fs::{self, File},
+    io::{Read, Write},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -17,17 +17,26 @@ impl Lexer {
         Self { contents: buf }
     }
     fn tokenize(&self) -> Vec<Token> {
-        for line in self.contents.lines() {
-            let line: Vec<&str> = line.split("=").collect();
+        let mut tokens = Vec::new();
 
-            let config_key: ConfigKey = line[0].parse().unwrap();
-            println!("{}", config_key);
+        for line in self.contents.lines() {
+            let line: Vec<&str> = line.split("=").map(|s| s.trim()).collect();
+
+            // TODO: 想定のキー以外であれば mmemo: 'command' is not a mmemo coomand. See 'mmemo
+            // --help'
+            let key: ConfigKey = line[0].parse().unwrap();
+            let value = line[1].to_string();
+
+            let token = Token { key, value };
+
+            tokens.push(token);
         }
 
-        todo!()
+        tokens
     }
 }
 
+#[derive(Debug)]
 struct Token {
     key: ConfigKey,
     value: String,
@@ -44,23 +53,52 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             editor: "vim".to_string(),
-            memo_dir: PathBuf::from(std::env::var("HOME").unwrap() + "/mmemo"),
+            memo_dir: mmemo_dir(),
             memo_template: "# {title}\n\nDate: {date}\n\n".to_string(),
         }
     }
 }
 
 impl Config {
+    fn init() {
+        fs::create_dir_all(config_dir()).unwrap();
+        fs::create_dir_all(mmemo_dir()).unwrap();
+        Config::write_default_config();
+    }
+    fn write_default_config() {
+        let config_path = config_path();
+        if !config_path.exists() {
+            let mut file = File::create(config_path).unwrap();
+
+            let default = concat!(
+                "editor = \"vim\"\n",
+                "memo_dir = \"~/mmemo\"\n",
+                "memo_template = \"# {title}\\n\\nDate: {date}\\n\\n\"\n"
+            );
+
+            file.write_all(default.as_bytes()).unwrap();
+        }
+    }
     pub fn new() -> Self {
-        // TODO: 開発環境では./config.tomlにしておく
-        // let path = std::env::var("HOME").unwrap() + "/mmemo" + "/config.toml";
-        let path = "config.toml";
-        let path = Path::new(&path);
+        Config::init();
 
-        let file = File::open(path).unwrap();
-        let token = Lexer::new(file).tokenize();
+        let file = File::open(config_path()).unwrap();
+        let tokens = Lexer::new(file).tokenize();
 
-        Config::default()
+        let mut config = Config::default();
+        config.apply_tokens(tokens);
+
+        config
+    }
+
+    fn apply_tokens(&mut self, tokens: Vec<Token>) {
+        for token in tokens {
+            match token.key {
+                ConfigKey::Editor => self.editor = token.value,
+                ConfigKey::MemoDir => self.memo_dir = token.value.into(),
+                ConfigKey::MemoTemplate => self.memo_template = token.value,
+            }
+        }
     }
 }
 
@@ -75,7 +113,13 @@ enum ConfigKey {
 }
 
 impl Display for ConfigKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigKey::Editor => write!(f, "editor"),
+            ConfigKey::MemoDir => write!(f, "memo_dir"),
+            ConfigKey::MemoTemplate => write!(f, "memo_template"),
+        }
+    }
 }
 
 impl FromStr for ConfigKey {
@@ -89,4 +133,20 @@ impl FromStr for ConfigKey {
             _ => Err(ParseConfigKeyError),
         }
     }
+}
+
+fn home_dir() -> String {
+    std::env::var("HOME").unwrap()
+}
+
+fn config_dir() -> PathBuf {
+    PathBuf::from(home_dir()).join(".config").join("mmemo")
+}
+
+fn mmemo_dir() -> PathBuf {
+    PathBuf::from(home_dir()).join("mmemo")
+}
+
+fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
 }
