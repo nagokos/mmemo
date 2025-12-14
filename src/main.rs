@@ -133,8 +133,6 @@ impl Display for Command {
 }
 
 fn main() {
-    // TODO: configの設定をもとにnewで実際にメモを作れるように
-
     let args: Vec<String> = args().skip(1).collect();
     match Command::parse(args) {
         ParseResult::Ok(cmd) => {
