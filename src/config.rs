@@ -1,4 +1,5 @@
 use std::{
+    env,
     fmt::Display,
     fs::{self, File},
     io::{Read, Write},
@@ -44,9 +45,9 @@ struct Token {
 
 #[derive(Debug)]
 pub struct Config {
-    editor: String,
-    memo_dir: PathBuf,
-    memo_template: String,
+    pub editor: String,
+    pub memo_dir: PathBuf,
+    pub memo_template: String,
 }
 
 impl Default for Config {
@@ -135,16 +136,16 @@ impl FromStr for ConfigKey {
     }
 }
 
-fn home_dir() -> String {
-    std::env::var("HOME").unwrap()
+fn home_dir() -> PathBuf {
+    env::home_dir().unwrap()
 }
 
 fn config_dir() -> PathBuf {
-    PathBuf::from(home_dir()).join(".config").join("mmemo")
+    home_dir().join(".config").join("mmemo")
 }
 
 fn mmemo_dir() -> PathBuf {
-    PathBuf::from(home_dir()).join("mmemo")
+    home_dir().join("mmemo")
 }
 
 fn config_path() -> PathBuf {
