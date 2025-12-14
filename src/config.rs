@@ -61,7 +61,14 @@ impl Default for Config {
 }
 
 impl Config {
-    fn init() {
+    pub fn init() {
+        if config_path().exists() {
+            print!(
+                "It has already been initialized. \nThe configuration file exists at ~/.config/mmemo/config.toml",
+            );
+            process::exit(0)
+        }
+
         fs::create_dir_all(config_dir()).unwrap();
         fs::create_dir_all(mmemo_dir()).unwrap();
         Config::write_default_config();
