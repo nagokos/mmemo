@@ -8,6 +8,7 @@ use std::{
 
 mod config;
 mod expand;
+mod path_utils;
 
 use crate::{config::Config, expand::HomeDir};
 
