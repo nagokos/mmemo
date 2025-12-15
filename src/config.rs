@@ -50,16 +50,6 @@ pub struct Config {
     pub memo_template: String,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            editor: "vim".to_string(),
-            memo_dir: mmemo_dir(),
-            memo_template: "# {title}\n\nDate: {date}\n\n".to_string(),
-        }
-    }
-}
-
 impl Config {
     pub fn init() {
         if config_path().exists() {
