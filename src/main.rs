@@ -35,6 +35,8 @@ enum Command {
     Cat,
     View,
     Config,
+    Help,
+    Version,
 }
 
 impl Command {
@@ -112,6 +114,8 @@ impl FromStr for Command {
             "cat" => Ok(Command::Cat),
             "view" => Ok(Command::View),
             "config" => Ok(Command::Config),
+            "help" | "-h" | "--help" => Ok(Command::Help),
+            "version" | "-v" | "--version" => Ok(Command::Version),
             _ => Err(CommandParseError),
         }
     }
@@ -129,6 +133,8 @@ impl Display for Command {
             Command::Cat => write!(f, "cat"),
             Command::View => write!(f, "view"),
             Command::Config => write!(f, "config"),
+            Command::Help => write!(f, "help"),
+            Command::Version => write!(f, "version"),
         }
     }
 }
