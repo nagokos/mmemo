@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::path_utils;
+use crate::app::path_utils;
 
 pub trait HomeDir {
     fn expand_home(&self) -> PathBuf {
