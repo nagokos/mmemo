@@ -22,22 +22,27 @@ impl Lexer {
         file.read_to_string(&mut buf).unwrap();
         Self { contents: buf }
     }
-    fn tokenize(&self) -> Vec<Token> {
+    fn tokenize(&self) -> MmemoResult<Vec<Token>> {
         let mut tokens = Vec::new();
 
-        // let table = line.parse::<Table>().unwrap();
-        //
-        // for (key, val) in &table {
-        //     let key  = match key.parse::<ConfigKey>() {
-        //         Ok(key) =>
-        //     };
-        //     let value = val.to_string();
-        //
-        //     let token = Token { key, value };
-        //     tokens.push(token);
-        // }
+        let table = toml::from_str::<Table>(&self.contents).unwrap();
 
-        tokens
+        for (key, val) in &table {
+            let key: ConfigKey = key.parse().map_err(|_| MmemoError::Parse {
+                message: key.to_string(),
+            })?;
+            let value = val
+                .as_str()
+                .ok_or(MmemoError::Parse {
+                    message: format!("{} must be a string", key),
+                })?
+                .to_string();
+
+            let token = Token { key, value };
+            tokens.push(token);
+        }
+
+        Ok(tokens)
     }
 }
 
