@@ -1,4 +1,7 @@
-use crate::{Command, app::error::Result};
+use crate::{
+    Command,
+    app::{config::Config, error::MmemoResult},
+};
 
 pub mod commands;
 pub mod config;
@@ -6,19 +9,28 @@ pub mod error;
 pub mod expand;
 pub mod path_utils;
 
-// pub fn run(cmd: Command) -> Result<()> {
-//     match cmd {
-//         Command::Init => todo!(),
-//         Command::New(s) => todo!(),
-//         Command::Edit => todo!(),
-//         Command::Delete => todo!(),
-//         Command::List => todo!(),
-//         Command::Grep => todo!(),
-//         Command::Cat => todo!(),
-//         Command::View => todo!(),
-//         Command::Help => todo!(),
-//         Command::Version => todo!(),
-//     }
+pub fn run(cmd: Command) -> MmemoResult<()> {
+    match cmd {
+        Command::Init => commands::init()?,
+        Command::Help => todo!(),
+        Command::Version => todo!(),
+        _ => {
+            let config = Config::load()?;
+            match cmd {
+                Command::New(opt) => {
+                    commands::new()?;
+                }
+                Command::Edit => todo!(),
+                Command::Delete => todo!(),
+                Command::List => todo!(),
+                Command::Grep => todo!(),
+                Command::Cat => todo!(),
+                Command::View => todo!(),
+                Command::Config => todo!(),
+                _ => unreachable!(),
+            }
+        }
+    }
 
     // fn run(self, config: Config) {
     //     match self {
