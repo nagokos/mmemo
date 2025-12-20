@@ -7,7 +7,7 @@ use crate::app::{
     config::{Config, InitStatus},
     error::MmemoResult,
     expand::HomeDir,
-    path_utils::config_path,
+    path_utils::{config_dir, config_path},
 };
 
 pub fn init() -> MmemoResult<()> {
@@ -49,6 +49,13 @@ pub fn new(config: Config, opt: Option<Vec<String>>) -> MmemoResult<()> {
                 .status()?;
         }
     }
+    Ok(())
+}
 
+pub fn config(config: Config) -> MmemoResult<()> {
+    process::Command::new(config.editor)
+        .current_dir(config_dir()?)
+        .arg("config.toml")
+        .status()?;
     Ok(())
 }
