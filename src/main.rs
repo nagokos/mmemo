@@ -44,7 +44,7 @@ impl Command {
 
                         Ok(Command::New(title_opt))
                     }
-
+                    Command::Config => Ok(Command::Config),
                     _ => todo!(),
                 }
             }

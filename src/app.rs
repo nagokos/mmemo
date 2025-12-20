@@ -26,7 +26,7 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
                 Command::Grep => todo!(),
                 Command::Cat => todo!(),
                 Command::View => todo!(),
-                Command::Config => todo!(),
+                Command::Config => commands::config(config)?,
                 _ => unreachable!(),
             }
         }
