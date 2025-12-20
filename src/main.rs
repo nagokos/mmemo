@@ -1,27 +1,16 @@
-use std::{
-    env::args,
-    fmt::Display,
-    io::{Write, stdin, stdout},
-    process,
-    str::FromStr,
-};
+use std::{env::args, fmt::Display, str::FromStr};
 
-mod config;
-mod expand;
-mod path_utils;
+use crate::app::run;
 
-use crate::{config::Config, expand::HomeDir};
+mod app;
 
-enum OptionsError {
-    InvalidCommand(String),
-    NoCommand,
-}
+#[derive(Debug, thiserror::Error)]
+enum CliParseError {
+    #[error("Parse error: {command}")]
+    UnknownCommand { command: String },
 
-enum ParseResult {
-    Ok(Command),
-    InvalidOptions(OptionsError),
-    Version,
-    Help,
+    #[error("command not found")]
+    CommandNotFound,
 }
 
 #[derive(Debug)]
@@ -40,59 +29,26 @@ enum Command {
 }
 
 impl Command {
-    fn parse(args: Vec<String>) -> ParseResult {
+    fn parse(args: Vec<String>) -> Result<Command, CliParseError> {
         match args.first() {
             Some(cmd) => {
-                // TODO: InvalidCommandで返せばいい
-                let cmd: Command = cmd.parse().unwrap();
+                let cmd: Command = cmd.parse().map_err(|_| CliParseError::UnknownCommand {
+                    command: cmd.to_string(),
+                })?;
 
                 match cmd {
-                    Command::Init => ParseResult::Ok(Command::Init),
+                    Command::Init => Ok(Command::Init),
                     Command::New(_) => {
                         let title: Vec<String> = args.into_iter().skip(1).collect();
                         let title_opt = (!title.is_empty()).then_some(title);
 
-                        ParseResult::Ok(Command::New(title_opt))
+                        Ok(Command::New(title_opt))
                     }
 
                     _ => todo!(),
                 }
             }
-            None => ParseResult::InvalidOptions(OptionsError::NoCommand),
-        }
-    }
-    fn run(self, config: Config) {
-        match self {
-            Command::Init => {
-                Config::init();
-            }
-            Command::New(opt) => match opt {
-                Some(title) => {
-                    let filename = format!("{}.md", title.join("_"));
-                    let memo_dir = config.memo_dir.expand_home();
-
-                    process::Command::new(config.editor)
-                        .current_dir(memo_dir)
-                        .arg(filename)
-                        .status()
-                        .unwrap();
-                }
-                None => {
-                    let mut title = String::new();
-                    print!("Title: ");
-                    stdout().flush().unwrap();
-                    stdin().read_line(&mut title).unwrap();
-
-                    let filename = format!("{}.md", title.trim().replace(" ", "_"));
-                    let memo_dir = config.memo_dir.expand_home();
-                    process::Command::new(config.editor)
-                        .current_dir(memo_dir)
-                        .arg(filename)
-                        .status()
-                        .unwrap();
-                }
-            },
-            _ => todo!(),
+            None => Err(CliParseError::CommandNotFound),
         }
     }
 }
@@ -141,11 +97,14 @@ impl Display for Command {
 
 fn main() {
     let args: Vec<String> = args().skip(1).collect();
-    match Command::parse(args) {
-        ParseResult::Ok(cmd) => {
-            let config = Config::new();
-            cmd.run(config);
-        }
-        _ => todo!(),
+
+    let cmd = Command::parse(args).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
+
+    if let Err(e) = run(cmd) {
+        eprintln!("{e}");
+        std::process::exit(1);
     }
 }

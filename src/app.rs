@@ -18,7 +18,7 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
             let config = Config::load()?;
             match cmd {
                 Command::New(opt) => {
-                    commands::new()?;
+                    commands::new(config, opt)?;
                 }
                 Command::Edit => todo!(),
                 Command::Delete => todo!(),
@@ -31,41 +31,5 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
             }
         }
     }
-
-    // fn run(self, config: Config) {
-    //     match self {
-    //         Command::Init => {
-    //             Config::init();
-    //         }
-    //         Command::New(opt) => match opt {
-    //             Some(title) => {
-    //                 let filename = format!("{}.md", title.join("_"));
-    //                 let memo_dir = config.memo_dir.expand_home();
-    //
-    //                 process::Command::new(config.editor)
-    //                     .current_dir(memo_dir)
-    //                     .arg(filename)
-    //                     .status()
-    //                     .unwrap();
-    //             }
-    //             None => {
-    //                 let mut title = String::new();
-    //                 print!("Title: ");
-    //                 stdout().flush().unwrap();
-    //                 stdin().read_line(&mut title).unwrap();
-    //
-    //                 let filename = format!("{}.md", title.trim().replace(" ", "_"));
-    //                 let memo_dir = config.memo_dir.expand_home();
-    //                 process::Command::new(config.editor)
-    //                     .current_dir(memo_dir)
-    //                     .arg(filename)
-    //                     .status()
-    //                     .unwrap();
-    //             }
-    //         },
-    //         _ => todo!(),
-    //     }
-    // }
-
     Ok(())
 }

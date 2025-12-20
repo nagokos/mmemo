@@ -1,16 +1,17 @@
 use std::{
-    env,
     fmt::Display,
     fs::{self, File},
     io::{Read, Write},
     path::PathBuf,
-    process::{self},
     str::FromStr,
 };
 
 use toml::Table;
 
-use crate::path_utils;
+use crate::app::{
+    error::{MmemoError, MmemoResult},
+    path_utils::{config_dir, config_path, mmemo_dir, template_path},
+};
 
 struct Lexer {
     contents: String,
@@ -59,23 +60,27 @@ pub struct Config {
     pub memo_template: Option<PathBuf>,
 }
 
+pub enum InitStatus {
+    Created,
+    AlreadyInitialized,
+}
+
 impl Config {
-    pub fn init() {
-        if config_path().exists() {
-            print!(
-                "It has already been initialized. \nThe configuration file exists at ~/.config/mmemo/config.toml",
-            );
-            process::exit(0)
+    pub fn init() -> MmemoResult<InitStatus> {
+        if config_path()?.exists() {
+            return Ok(InitStatus::AlreadyInitialized);
         }
 
-        fs::create_dir_all(config_dir()).unwrap();
-        fs::create_dir_all(mmemo_dir()).unwrap();
-        Config::write_default_config();
-        Config::write_default_template();
+        fs::create_dir_all(config_dir()?)?;
+        fs::create_dir_all(mmemo_dir()?)?;
+        // TODO: path渡すようにした方がいい
+        Config::write_default_config()?;
+        Config::write_default_template()?;
+
+        Ok(InitStatus::Created)
     }
-    fn write_default_config() {
-        let config_path = config_path();
-        let mut file = File::create(config_path).unwrap();
+    fn write_default_config() -> MmemoResult<()> {
+        let mut file = File::create(config_path()?)?;
 
         let default = concat!(
             "editor = \"vim\"\n",
@@ -84,23 +89,29 @@ impl Config {
             "memo_template = \"~/.config/mmemo/template.md\"\n"
         );
 
-        file.write_all(default.as_bytes()).unwrap();
+        file.write_all(default.as_bytes())?;
+
+        Ok(())
     }
-    fn write_default_template() {
-        let template_path = template_path();
-        let mut file = File::create(template_path).unwrap();
+    fn write_default_template() -> MmemoResult<()> {
+        let mut file = File::create(template_path()?)?;
 
         let default = "# {title}\n\nDate: {date}\n\n";
-        file.write_all(default.as_bytes()).unwrap();
-    }
-    pub fn new() -> Self {
-        let file = File::open(config_path()).unwrap();
-        let tokens = Lexer::new(file).tokenize();
+        file.write_all(default.as_bytes())?;
 
-        Config::try_from(tokens).unwrap_or_else(|e| {
-            e.0.into_iter().for_each(|msg| println!("{msg}"));
-            std::process::exit(1);
-        })
+        Ok(())
+    }
+    pub fn load() -> MmemoResult<Self> {
+        let file = File::open(config_path()?).map_err(|_| MmemoError::Config {
+            message: "Configuration file not found. Please run 'mmemo init'.".to_string(),
+        })?;
+        let tokens = Lexer::new(file).tokenize()?;
+
+        let config = Config::try_from(tokens).map_err(|e| MmemoError::Config {
+            message: e.0.join("\n"),
+        })?;
+
+        Ok(config)
     }
 }
 
@@ -179,20 +190,4 @@ impl FromStr for ConfigKey {
             _ => Err(ParseConfigKeyError),
         }
     }
-}
-
-fn config_dir() -> PathBuf {
-    path_utils::home_dir().join(".config").join("mmemo")
-}
-
-fn mmemo_dir() -> PathBuf {
-    path_utils::home_dir().join("mmemo")
-}
-
-fn config_path() -> PathBuf {
-    config_dir().join("config.toml")
-}
-
-fn template_path() -> PathBuf {
-    config_dir().join("template.md")
 }

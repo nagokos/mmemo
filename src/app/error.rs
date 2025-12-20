@@ -1,5 +1,8 @@
 #[derive(Debug, thiserror::Error)]
 pub enum MmemoError {
+    #[error("Environment variable not set: {key}")]
+    EnvVarMissing { key: &'static str },
+
     #[error("Parse error: {message}")]
     Parse { message: String },
 
@@ -16,4 +19,4 @@ pub enum MmemoError {
     MemoNotFound { query: String },
 }
 
-pub type Result<T> = std::result::Result<T, MmemoError>;
+pub type MmemoResult<T> = std::result::Result<T, MmemoError>;
