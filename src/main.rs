@@ -50,6 +50,7 @@ impl Command {
                         }
                         Ok(Command::New(title))
                     }
+                    Command::Edit => Ok(Command::Edit),
                     Command::Config => Ok(Command::Config),
                     _ => todo!(),
                 }

@@ -9,6 +9,8 @@ pub mod error;
 pub mod expand;
 pub mod path_utils;
 
+pub mod selector;
+
 pub fn run(cmd: Command) -> MmemoResult<()> {
     match cmd {
         Command::Init => commands::init()?,
