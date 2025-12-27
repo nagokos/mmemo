@@ -17,10 +17,8 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
         _ => {
             let config = Config::load()?;
             match cmd {
-                Command::New(opt) => {
-                    commands::new(config, opt)?;
-                }
-                Command::Edit => todo!(),
+                Command::New(s) => commands::new(config, s)?,
+                Command::Edit => commands::edit(config)?,
                 Command::Delete => todo!(),
                 Command::List => todo!(),
                 Command::Grep => todo!(),

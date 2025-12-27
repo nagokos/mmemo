@@ -1,7 +1,4 @@
-use std::{
-    io::{Write, stdin, stdout},
-    process,
-};
+use std::{path::Path, process};
 
 use crate::app::{
     config::{Config, InitStatus},
@@ -24,31 +21,20 @@ pub fn init() -> MmemoResult<()> {
     Ok(())
 }
 
-pub fn new(config: Config, opt: Option<Vec<String>>) -> MmemoResult<()> {
-    match opt {
-        Some(title) => {
-            let filename = format!("{}.md", title.join("_"));
-            let memo_dir = config.memo_dir.expand_home()?;
+pub fn new(config: Config, title: Vec<String>) -> MmemoResult<()> {
+    let mut filename = title.join("_");
 
-            process::Command::new(config.editor)
-                .current_dir(memo_dir)
-                .arg(filename)
-                .status()?;
-        }
-        None => {
-            let mut title = String::new();
-            print!("Title: ");
-            stdout().flush()?;
-            stdin().read_line(&mut title)?;
+    let extension = Path::new(&filename).extension();
 
-            let filename = format!("{}.md", title.trim().replace(" ", "_"));
-            let memo_dir = config.memo_dir.expand_home()?;
-            process::Command::new(config.editor)
-                .current_dir(memo_dir)
-                .arg(filename)
-                .status()?;
-        }
+    if extension.is_none() {
+        filename = format!("{}.md", filename);
     }
+    let memo_dir = config.memo_dir.expand_home()?;
+
+    process::Command::new(config.editor)
+        .current_dir(memo_dir)
+        .arg(filename)
+        .status()?;
     Ok(())
 }
 

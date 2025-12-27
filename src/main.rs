@@ -11,12 +11,15 @@ enum CliParseError {
 
     #[error("command not found")]
     CommandNotFound,
+
+    #[error("Usage: {usage}")]
+    MissingArgument { usage: String },
 }
 
 #[derive(Debug)]
 enum Command {
     Init,
-    New(Option<Vec<String>>),
+    New(Vec<String>),
     Edit,
     Delete,
     List,
@@ -40,9 +43,12 @@ impl Command {
                     Command::Init => Ok(Command::Init),
                     Command::New(_) => {
                         let title: Vec<String> = args.into_iter().skip(1).collect();
-                        let title_opt = (!title.is_empty()).then_some(title);
-
-                        Ok(Command::New(title_opt))
+                        if title.is_empty() {
+                            return Err(CliParseError::MissingArgument {
+                                usage: "mmemo new <title>".to_string(),
+                            });
+                        }
+                        Ok(Command::New(title))
                     }
                     Command::Config => Ok(Command::Config),
                     _ => todo!(),
@@ -62,7 +68,7 @@ impl FromStr for Command {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "init" => Ok(Command::Init),
-            "new" => Ok(Command::New(None)),
+            "new" => Ok(Command::New(Vec::new())),
             "edit" => Ok(Command::Edit),
             "delete" => Ok(Command::Delete),
             "list" => Ok(Command::List),
@@ -81,7 +87,7 @@ impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Command::Init => write!(f, "init"),
-            Command::New(s) => write!(f, "new {}", s.as_ref().unwrap().join("_")),
+            Command::New(s) => write!(f, "new {}", s.join(" ")),
             Command::Edit => write!(f, "edit"),
             Command::Delete => write!(f, "delete"),
             Command::List => write!(f, "list"),
