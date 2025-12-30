@@ -1,15 +1,24 @@
 #[derive(Debug)]
 pub struct Matcher {
     pub items: Vec<String>,
+    cache: Option<(String, Vec<usize>)>,
 }
 
 impl Matcher {
     pub fn new(items: Vec<String>) -> Self {
-        Matcher { items }
+        Matcher { items, cache: None }
     }
-    pub fn fuzzy_match(&self, input: &str) -> Vec<MatchResult> {
+
+    pub fn fuzzy_match(&mut self, input: &str) -> Vec<MatchResult> {
+        if let Some((prev, indices)) = &self.cache {
+            if input.starts_with(prev) && indices.is_empty() {
+                return Vec::new();
+            }
+        }
+
         if input.is_empty() {
-            let vec = self
+            self.cache = None;
+            return self
                 .items
                 .iter()
                 .map(|item| MatchResult {
@@ -19,86 +28,88 @@ impl Matcher {
                     hits: Vec::new(),
                 })
                 .collect();
+        }
 
-            return vec;
+        // 前回の入力で始まるなら、キャッシュした候補だけ検索
+        let search_indices: Vec<usize> = match &self.cache {
+            Some((prev, indices)) if input.starts_with(prev) => indices.clone(),
+            _ => (0..self.items.len()).collect(),
         };
 
-        let mut result = self
-            .items
-            .iter()
-            .filter_map(|item| {
-                // matchで表現できるようにするのはどうか
-                // fn matchkindみたいなの作ってそれで条件分岐
-                if input == item {
-                    // Exact
-                    Some(MatchResult {
-                        item: item.to_owned(),
-                        kind: MatchKind::Exact,
-                        score: None,
-                        hits: (0..input.len()).collect(),
-                    })
-                } else if item.starts_with(input) {
-                    // Prefix
-                    Some(MatchResult {
-                        item: item.to_owned(),
-                        kind: MatchKind::Prefix,
-                        score: None,
-                        hits: (0..input.len()).collect(),
-                    })
-                } else if item.contains(input) {
-                    // Substring
-                    let input_char = input.chars().next()?;
-                    let distance = item
-                        .chars()
-                        .position(|target_char| target_char == input_char)?;
+        let mut matched_indices = Vec::new();
+        let mut result = Vec::new();
 
-                    Some(MatchResult {
-                        item: item.to_owned(),
-                        kind: MatchKind::Substring,
-                        // 小さい方が表示で有利
-                        score: Some(distance),
-                        hits: (distance..distance + input.len()).collect(),
-                    })
-                } else {
-                    // Fuzzy
-                    let mut index = 0;
-                    let mut score = 0;
-                    let mut previous_hit = false;
-                    let mut hits = Vec::new();
+        for i in search_indices {
+            let item = &self.items[i];
+            if let Some(m) = self.match_item(item, input) {
+                matched_indices.push(i);
+                result.push(m);
+            }
+        }
 
-                    'input: for input_char in input.chars() {
-                        for target_char in item.chars().skip(index) {
-                            index += 1;
-
-                            if input_char == target_char {
-                                hits.push(index - 1);
-                                if previous_hit {
-                                    score += 5;
-                                } else {
-                                    previous_hit = true;
-                                    score += 3;
-                                }
-                                continue 'input;
-                            } else {
-                                previous_hit = false
-                            }
-                        }
-                        return None;
-                    }
-
-                    Some(MatchResult {
-                        item: item.to_owned(),
-                        kind: MatchKind::Fuzzy,
-                        score: Some(score),
-                        hits,
-                    })
-                }
-            })
-            .collect::<Vec<_>>();
+        self.cache = Some((input.to_string(), matched_indices));
 
         result.sort_by(|a, b| (a.kind, a.score).cmp(&(b.kind, b.score)));
-
         result
+    }
+
+    fn match_item(&self, item: &str, input: &str) -> Option<MatchResult> {
+        if input == item {
+            Some(MatchResult {
+                item: item.to_owned(),
+                kind: MatchKind::Exact,
+                score: None,
+                hits: (0..input.len()).collect(),
+            })
+        } else if item.starts_with(input) {
+            Some(MatchResult {
+                item: item.to_owned(),
+                kind: MatchKind::Prefix,
+                score: None,
+                hits: (0..input.len()).collect(),
+            })
+        } else if item.contains(input) {
+            let input_char = input.chars().next()?;
+            let distance = item
+                .chars()
+                .position(|target_char| target_char == input_char)?;
+            Some(MatchResult {
+                item: item.to_owned(),
+                kind: MatchKind::Substring,
+                score: Some(distance),
+                hits: (distance..distance + input.len()).collect(),
+            })
+        } else {
+            // Fuzzy
+            let mut index = 0;
+            let mut score = 0;
+            let mut previous_hit = false;
+            let mut hits = Vec::new();
+            'input: for input_char in input.chars() {
+                for target_char in item.chars().skip(index) {
+                    index += 1;
+                    if input_char == target_char {
+                        hits.push(index - 1);
+                        if previous_hit {
+                            score += 5;
+                        } else {
+                            previous_hit = true;
+                            score += 3;
+                        }
+                        continue 'input;
+                    } else {
+                        previous_hit = false
+                    }
+                }
+                return None;
+            }
+            Some(MatchResult {
+                item: item.to_owned(),
+                kind: MatchKind::Fuzzy,
+                score: Some(score),
+                hits,
+            })
+        }
     }
 }
 
@@ -112,14 +123,9 @@ pub struct MatchResult {
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 enum MatchKind {
-    // "abc" "abc.md"
     Exact,
-    // "abc" "abc_memo.md"
     Prefix,
-    // "abc" "my_abc_memo.md"
     Substring,
-    // "abc" "a_b_c.md"
     Fuzzy,
-    // input is empty
     Unfiltered,
 }
