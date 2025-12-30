@@ -1,6 +1,10 @@
 use std::cmp::min;
-use std::io::{self, stderr};
+use std::io::{self, Write, stderr};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::thread;
+use std::time::Duration;
 
+use crossterm::event::poll;
 use crossterm::terminal::Clear;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -12,9 +16,9 @@ use crossterm::{
 
 use crate::app::selector::core::{MatchResult, Matcher};
 
-fn draw_outline(cols: u16, rows: u16) -> io::Result<()> {
+fn draw_outline(stderr: &mut impl Write, cols: u16, rows: u16) -> io::Result<()> {
     execute!(
-        stderr(),
+        stderr,
         SetForegroundColor(Color::Rgb {
             r: 100,
             g: 100,
@@ -22,34 +26,51 @@ fn draw_outline(cols: u16, rows: u16) -> io::Result<()> {
         })
     )?;
 
-    execute!(stderr(), MoveTo(0, 0), Print("╭"))?;
+    execute!(stderr, MoveTo(0, 0), Print("╭"))?;
     for _ in 1..cols - 1 {
-        execute!(stderr(), Print("─"))?;
+        execute!(stderr, Print("─"))?;
     }
-    execute!(stderr(), MoveTo(cols - 1, 0), Print("╮"))?;
+    execute!(stderr, MoveTo(cols - 1, 0), Print("╮"))?;
 
     for c in 1..rows - 1 {
-        execute!(stderr(), MoveTo(cols - 1, c), Print("│"))?;
+        execute!(stderr, MoveTo(cols - 1, c), Print("│"))?;
     }
-    execute!(stderr(), MoveTo(cols - 1, rows - 1), Print("╯"))?;
+    execute!(stderr, MoveTo(cols - 1, rows - 1), Print("╯"))?;
 
     for c in 1..rows - 1 {
-        execute!(stderr(), MoveTo(0, c), Print("│"))?;
+        execute!(stderr, MoveTo(0, c), Print("│"))?;
     }
-    execute!(stderr(), MoveTo(0, rows - 1), Print("╰"))?;
+    execute!(stderr, MoveTo(0, rows - 1), Print("╰"))?;
 
     for _ in 1..cols - 1 {
-        execute!(stderr(), Print("─"))?;
+        execute!(stderr, Print("─"))?;
     }
 
-    execute!(stderr(), ResetColor)?;
+    execute!(stderr, ResetColor)?;
 
     Ok(())
 }
 
-fn draw_input(cols: u16, input: &str) -> io::Result<()> {
+fn draw_count(stderr: &mut impl Write, match_count: usize, items_count: usize) -> io::Result<()> {
     execute!(
-        stderr(),
+        stderr,
+        SetForegroundColor(Color::Rgb {
+            r: 110,
+            g: 110,
+            b: 110
+        }),
+        MoveTo(4, 2),
+        Print(format!("{}/{}", match_count, items_count)),
+    )?;
+
+    execute!(stderr, ResetColor)?;
+
+    Ok(())
+}
+
+fn draw_input(stderr: &mut impl Write, input: &str) -> io::Result<()> {
+    execute!(
+        stderr,
         MoveTo(2, 1),
         SetForegroundColor(Color::Blue),
         Print("> "),
@@ -58,26 +79,16 @@ fn draw_input(cols: u16, input: &str) -> io::Result<()> {
         Print("█"),
     )?;
 
-    execute!(
-        stderr(),
-        MoveTo(4, 2),
-        SetForegroundColor(Color::Rgb {
-            r: 100,
-            g: 100,
-            b: 100
-        })
-    )?;
-
-    for _ in 4..cols - 3 {
-        execute!(stderr(), Print("─"),)?;
-    }
-
-    execute!(stderr(), ResetColor)?;
+    execute!(stderr, ResetColor)?;
 
     Ok(())
 }
 
-fn draw_items(selected_index: usize, results: &[&MatchResult]) -> io::Result<()> {
+fn draw_items(
+    stderr: &mut impl Write,
+    selected_index: usize,
+    results: &[&MatchResult],
+) -> io::Result<()> {
     for (r_i, result) in results.iter().enumerate() {
         let is_selected = r_i == selected_index;
         let mut line = String::new();
@@ -99,19 +110,19 @@ fn draw_items(selected_index: usize, results: &[&MatchResult]) -> io::Result<()>
 
         if is_selected {
             execute!(
-                stderr(),
+                stderr,
                 MoveTo(2, (r_i + 3) as u16),
                 SetForegroundColor(Color::Red),
                 Print("█"),
                 ResetColor
             )?;
         }
-        execute!(stderr(), MoveTo(4, (r_i + 3) as u16), Print(line),)?;
+        execute!(stderr, MoveTo(4, (r_i + 3) as u16), Print(line),)?;
     }
     Ok(())
 }
 
-pub fn select(matcher: Matcher) -> io::Result<Option<String>> {
+pub fn select(mut matcher: Matcher) -> io::Result<Option<String>> {
     enable_raw_mode()?;
     execute!(stderr(), EnterAlternateScreen, Hide)?;
 
@@ -122,107 +133,141 @@ pub fn select(matcher: Matcher) -> io::Result<Option<String>> {
     let mut start_pos = 0;
 
     let max_items = rows as usize - 4;
+    let all_items = matcher.items.len();
     let scroll_next_pos = rows as usize - 11;
     let scroll_previous_pos = 5;
 
-    let select = loop {
-        execute!(stderr(), Clear(terminal::ClearType::All))?;
+    let (query_tx, query_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let (result_tx, result_rx): (Sender<Vec<MatchResult>>, Receiver<Vec<MatchResult>>) =
+        mpsc::channel();
+    let mut result: Vec<MatchResult> = Vec::new();
 
-        draw_outline(cols, rows)?;
-        draw_input(cols, &input)?;
-
-        let result = matcher.fuzzy_match(&input);
-        let items: Vec<_> = result.iter().skip(start_pos).take(max_items).collect();
-        draw_items(selected_index, &items[..])?;
-
-        let all_items = result.len();
-
-        match read()? {
-            Event::Key(KeyEvent {
-                code: KeyCode::Esc, ..
-            }) => break None,
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('c'),
-                modifiers: KeyModifiers::CONTROL,
-                ..
-            }) => break None,
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('p'),
-                modifiers: KeyModifiers::CONTROL,
-                ..
-            }) => {
-                if items.is_empty() {
-                    continue;
-                }
-
-                if selected_index == 0 {
-                    selected_index = min(max_items, all_items) - 1;
-                    start_pos = all_items.saturating_sub(max_items);
-                    continue;
-                }
-
-                if start_pos == 0 {
-                    selected_index -= 1;
-                    continue;
-                }
-
-                if selected_index > scroll_previous_pos {
-                    selected_index -= 1;
-                } else {
-                    start_pos -= 1;
-                }
+    thread::spawn(move || {
+        while let Ok(input) = query_rx.recv() {
+            let result = matcher.fuzzy_match(&input);
+            if result_tx.send(result).is_err() {
+                break;
             }
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('n'),
-                modifiers: KeyModifiers::CONTROL,
-                ..
-            }) => {
-                if items.is_empty() {
-                    continue;
-                }
+        }
+    });
 
-                if selected_index == items.len() - 1 {
+    let _ = query_tx.send(input.clone());
+    let mut needs_redraw = true;
+
+    let select = loop {
+        loop {
+            match result_rx.try_recv() {
+                Ok(new_result) => {
+                    result = new_result;
                     selected_index = 0;
                     start_pos = 0;
-                    continue;
+                    needs_redraw = true;
                 }
-                if all_items.saturating_sub(max_items) == start_pos {
-                    selected_index += 1;
-                    continue;
-                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => break,
+            }
+        }
 
-                if selected_index <= scroll_next_pos {
-                    selected_index += 1;
-                } else {
-                    start_pos += 1;
+        let items: Vec<_> = result.iter().skip(start_pos).take(max_items).collect();
+
+        if needs_redraw {
+            let mut stderr = stderr().lock();
+            execute!(stderr, Clear(terminal::ClearType::All))?;
+            draw_outline(&mut stderr, cols, rows)?;
+            draw_input(&mut stderr, &input)?;
+            draw_count(&mut stderr, result.len(), all_items)?;
+            draw_items(&mut stderr, selected_index, &items[..])?;
+            stderr.flush()?;
+            needs_redraw = false;
+        }
+
+        if poll(Duration::from_millis(16))? {
+            needs_redraw = true;
+            match read()? {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Esc, ..
+                }) => break None,
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('c'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                }) => break None,
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('p'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                }) => {
+                    if items.is_empty() {
+                        continue;
+                    }
+
+                    if selected_index == 0 {
+                        selected_index = min(max_items, result.len()) - 1;
+                        start_pos = result.len().saturating_sub(max_items);
+                        continue;
+                    }
+
+                    if start_pos == 0 {
+                        selected_index -= 1;
+                        continue;
+                    }
+
+                    if selected_index > scroll_previous_pos {
+                        selected_index -= 1;
+                    } else {
+                        start_pos -= 1;
+                    }
                 }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Backspace,
-                ..
-            }) => {
-                input.pop();
-                selected_index = 0;
-                start_pos = 0;
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Char(c),
-                ..
-            }) => {
-                input.push(c);
-                selected_index = 0;
-                start_pos = 0;
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                ..
-            }) => {
-                if items.is_empty() {
-                    break None;
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('n'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                }) => {
+                    if items.is_empty() {
+                        continue;
+                    }
+
+                    if selected_index == items.len() - 1 {
+                        selected_index = 0;
+                        start_pos = 0;
+                        continue;
+                    }
+                    if result.len().saturating_sub(max_items) == start_pos {
+                        selected_index += 1;
+                        continue;
+                    }
+
+                    if selected_index <= scroll_next_pos {
+                        selected_index += 1;
+                    } else {
+                        start_pos += 1;
+                    }
                 }
-                break Some(items[selected_index].item.clone());
+                Event::Key(KeyEvent {
+                    code: KeyCode::Backspace,
+                    ..
+                }) => {
+                    input.pop();
+                    let _ = query_tx.send(input.clone());
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char(c),
+                    ..
+                }) => {
+                    input.push(c);
+                    let _ = query_tx.send(input.clone());
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Enter,
+                    ..
+                }) => {
+                    if items.is_empty() {
+                        break None;
+                    }
+                    break Some(items[selected_index].item.clone());
+                }
+                _ => continue,
             }
-            _ => continue,
         }
     };
 
