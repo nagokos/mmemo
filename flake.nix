@@ -58,6 +58,8 @@
             with pkgs;
             mkShell {
               packages = [
+                fzf
+                skim
               ]
               ++ rust-toolchain;
             };
