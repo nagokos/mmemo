@@ -58,6 +58,28 @@ pub struct Config {
     pub editor: String,
     pub memo_dir: PathBuf,
     pub memo_template: Option<PathBuf>,
+    pub selector: SelectorKind,
+}
+
+#[derive(Debug)]
+pub enum SelectorKind {
+    Builtin,
+    Fzf,
+    Skim,
+}
+
+pub struct ParseSelectorKindError;
+
+impl FromStr for SelectorKind {
+    type Err = ParseSelectorKindError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "builtin" => Ok(SelectorKind::Builtin),
+            "fzf" => Ok(SelectorKind::Fzf),
+            "skim" => Ok(SelectorKind::Skim),
+            _ => Err(ParseSelectorKindError),
+        }
+    }
 }
 
 pub enum InitStatus {
@@ -86,7 +108,8 @@ impl Config {
             "editor = \"vim\"\n",
             "memo_dir = \"~/mmemo\"\n",
             // これもパスにしてしまう
-            "memo_template = \"~/.config/mmemo/template.md\"\n"
+            "memo_template = \"~/.config/mmemo/template.md\"\n",
+            "selector = \"builtin\"\n"
         );
 
         file.write_all(default.as_bytes())?;
@@ -123,8 +146,9 @@ impl TryFrom<Vec<Token>> for Config {
 
     fn try_from(tokens: Vec<Token>) -> Result<Self, Self::Error> {
         let mut editor: Option<String> = None;
-        let mut memo_dir: Option<String> = None;
-        let mut memo_template: Option<String> = None;
+        let mut memo_dir: Option<PathBuf> = None;
+        let mut memo_template: Option<PathBuf> = None;
+        let mut selector: Option<SelectorKind> = None;
 
         for token in tokens {
             let value = token.value.trim();
@@ -132,19 +156,25 @@ impl TryFrom<Vec<Token>> for Config {
 
             match token.key {
                 ConfigKey::Editor => editor = value,
-                ConfigKey::MemoDir => memo_dir = value,
-                ConfigKey::MemoTemplate => memo_template = value,
+                ConfigKey::MemoDir => memo_dir = value.map(PathBuf::from),
+                ConfigKey::MemoTemplate => memo_template = value.map(PathBuf::from),
+                ConfigKey::Selector => selector = value.and_then(|s| s.parse().ok()),
             }
         }
 
-        match (editor, memo_dir, memo_template) {
-            (Some(editor), Some(memo_dir), memo_template) => Ok(Config {
+        match (editor, memo_dir, memo_template, selector) {
+            (Some(editor), Some(memo_dir), memo_template, Some(selector)) => Ok(Config {
                 editor,
-                memo_dir: memo_dir.into(),
-                memo_template: memo_template.map(|t| t.into()),
+                memo_dir,
+                memo_template,
+                selector,
             }),
-            (e, d, _) => {
-                let vec = [(e.is_none(), "editor"), (d.is_none(), "memo_dir")];
+            (e, d, _, s) => {
+                let vec = [
+                    (e.is_none(), "editor"),
+                    (d.is_none(), "memo_dir"),
+                    (s.is_none(), "selector"),
+                ];
 
                 let errors: Vec<String> = vec
                     .into_iter()
@@ -167,6 +197,7 @@ enum ConfigKey {
     Editor,
     MemoDir,
     MemoTemplate,
+    Selector,
 }
 
 impl Display for ConfigKey {
@@ -175,6 +206,7 @@ impl Display for ConfigKey {
             ConfigKey::Editor => write!(f, "editor"),
             ConfigKey::MemoDir => write!(f, "memo_dir"),
             ConfigKey::MemoTemplate => write!(f, "memo_template"),
+            ConfigKey::Selector => write!(f, "selector"),
         }
     }
 }
@@ -187,6 +219,7 @@ impl FromStr for ConfigKey {
             "editor" => Ok(ConfigKey::Editor),
             "memo_dir" => Ok(ConfigKey::MemoDir),
             "memo_template" => Ok(ConfigKey::MemoTemplate),
+            "selector" => Ok(ConfigKey::Selector),
             _ => Err(ParseConfigKeyError),
         }
     }

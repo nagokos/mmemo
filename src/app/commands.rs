@@ -10,7 +10,7 @@ use crate::app::{
     error::MmemoResult,
     expand::HomeDir,
     path_utils::{config_dir, config_path},
-    selector::{core::Matcher, ui},
+    selector,
 };
 
 pub fn init() -> MmemoResult<()> {
@@ -48,8 +48,8 @@ pub fn edit(config: Config) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
     let files = dir_files(&memo_dir)?;
 
-    let matcher = Matcher::new(files);
-    if let Some(result) = ui::select(matcher)? {
+    let selector = selector::selector_select(config.selector);
+    if let Some(result) = selector.select(files)? {
         process::Command::new(config.editor)
             .current_dir(memo_dir)
             .arg(result)

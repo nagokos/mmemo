@@ -10,6 +10,7 @@ impl Matcher {
     }
 
     pub fn fuzzy_match(&mut self, input: &str) -> Vec<MatchResult> {
+        #[allow(clippy::collapsible_if)]
         if let Some((prev, indices)) = &self.cache {
             if input.starts_with(prev) && indices.is_empty() {
                 return Vec::new();
