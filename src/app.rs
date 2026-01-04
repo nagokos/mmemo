@@ -21,7 +21,7 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
             match cmd {
                 Command::New(s) => commands::new(config, s)?,
                 Command::Edit => commands::edit(config)?,
-                Command::Delete => todo!(),
+                Command::Delete => commands::delete(config)?,
                 Command::List => todo!(),
                 Command::Grep => todo!(),
                 Command::Cat => todo!(),

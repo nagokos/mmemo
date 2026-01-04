@@ -59,6 +59,21 @@ pub fn edit(config: Config) -> MmemoResult<()> {
     Ok(())
 }
 
+pub fn delete(config: Config) -> MmemoResult<()> {
+    let memo_dir = config.memo_dir.expand_home()?;
+    let files = dir_files(&memo_dir)?;
+
+    let selector = selector::selector_select(config.selector);
+    if let Some(result) = selector.select(files)? {
+        process::Command::new("rm")
+            .current_dir(memo_dir)
+            .arg(result)
+            .status()?;
+    }
+
+    Ok(())
+}
+
 pub fn dir_files(dir: &Path) -> MmemoResult<Vec<String>> {
     let mut files = Vec::new();
     let mut cd = |entry: &DirEntry| {
