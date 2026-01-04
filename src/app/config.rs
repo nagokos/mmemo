@@ -10,6 +10,7 @@ use toml::Table;
 
 use crate::app::{
     error::{MmemoError, MmemoResult},
+    expand::HomeDir,
     path_utils::{config_dir, config_path, mmemo_dir, template_path},
 };
 
@@ -54,14 +55,6 @@ struct Token {
 }
 
 #[derive(Debug)]
-pub struct Config {
-    pub editor: String,
-    pub memo_dir: PathBuf,
-    pub memo_template: Option<PathBuf>,
-    pub selector: SelectorKind,
-}
-
-#[derive(Debug)]
 pub enum SelectorKind {
     Builtin,
     Fzf,
@@ -85,6 +78,14 @@ impl FromStr for SelectorKind {
 pub enum InitStatus {
     Created,
     AlreadyInitialized,
+}
+
+#[derive(Debug)]
+pub struct Config {
+    pub editor: String,
+    pub memo_dir: PathBuf,
+    pub memo_template: Option<PathBuf>,
+    pub selector: SelectorKind,
 }
 
 impl Config {
@@ -124,6 +125,19 @@ impl Config {
 
         Ok(())
     }
+    fn validate(&self) -> MmemoResult<()> {
+        let memo_dir = self.memo_dir.expand_home()?;
+
+        if !memo_dir.exists() {
+            return Err(MmemoError::MemoDirNotFound(memo_dir));
+        }
+
+        if !memo_dir.is_dir() {
+            return Err(MmemoError::MemoDirNotDirectory(memo_dir));
+        }
+
+        Ok(())
+    }
     pub fn load() -> MmemoResult<Self> {
         let file = File::open(config_path()?).map_err(|_| MmemoError::Config {
             message: "Configuration file not found. Please run 'mmemo init'.".to_string(),
@@ -133,6 +147,7 @@ impl Config {
         let config = Config::try_from(tokens).map_err(|e| MmemoError::Config {
             message: e.0.join("\n"),
         })?;
+        config.validate()?;
 
         Ok(config)
     }
