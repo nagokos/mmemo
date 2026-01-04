@@ -22,7 +22,7 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
                 Command::New(s) => commands::new(config, s)?,
                 Command::Edit => commands::edit(config)?,
                 Command::Delete => commands::delete(config)?,
-                Command::List => todo!(),
+                Command::List => commands::list(config)?,
                 Command::Grep => todo!(),
                 Command::Cat => todo!(),
                 Command::View => todo!(),

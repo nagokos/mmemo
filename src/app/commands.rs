@@ -1,9 +1,11 @@
 use std::{
-    fs::{self, DirEntry},
-    io,
+    fs::{self, DirEntry, File},
+    io::{self},
     path::Path,
     process,
 };
+
+use chrono::{DateTime, Datelike, Utc};
 
 use crate::app::{
     config::{Config, InitStatus},
@@ -103,6 +105,33 @@ fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+pub fn list(config: Config) -> MmemoResult<()> {
+    let memo_dir = config.memo_dir.expand_home()?;
+
+    println!("Memos in {}:\n", memo_dir.display());
+
+    let files = dir_files(&memo_dir)?;
+
+    for file in &files {
+        let file_path = memo_dir.join(file);
+        let f = File::open(file_path)?;
+
+        let date_time: DateTime<Utc> = f.metadata()?.created()?.into();
+        let created_time = format!(
+            "{}-{:02}-{:02}",
+            date_time.year(),
+            date_time.month(),
+            date_time.day()
+        );
+
+        println!("{}\t{}", file, created_time);
+    }
+
+    println!("\nTotal: {} memos", files.len());
+
     Ok(())
 }
 
