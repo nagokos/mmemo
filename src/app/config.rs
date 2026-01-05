@@ -19,15 +19,17 @@ struct Lexer {
 }
 
 impl Lexer {
-    fn new(mut file: File) -> Self {
+    fn new(mut file: File) -> MmemoResult<Self> {
         let mut buf = String::new();
-        file.read_to_string(&mut buf).unwrap();
-        Self { contents: buf }
+        file.read_to_string(&mut buf)?;
+        Ok(Self { contents: buf })
     }
     fn tokenize(&self) -> MmemoResult<Vec<Token>> {
         let mut tokens = Vec::new();
 
-        let table = toml::from_str::<Table>(&self.contents).unwrap();
+        let table = toml::from_str::<Table>(&self.contents).map_err(|_| MmemoError::Config {
+            message: "Please check the configuration settings.".to_string(),
+        })?;
 
         for (key, val) in &table {
             let key: ConfigKey = key.parse().map_err(|_| MmemoError::Parse {
@@ -142,7 +144,7 @@ impl Config {
         let file = File::open(config_path()?).map_err(|_| MmemoError::Config {
             message: "Configuration file not found. Please run 'mmemo init'.".to_string(),
         })?;
-        let tokens = Lexer::new(file).tokenize()?;
+        let tokens = Lexer::new(file)?.tokenize()?;
 
         let config = Config::try_from(tokens).map_err(|e| MmemoError::Config {
             message: e.0.join("\n"),
