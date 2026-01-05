@@ -13,6 +13,7 @@ use crate::app::{
     expand::HomeDir,
     path_utils::{config_dir, config_path},
     selector,
+    template::Template,
 };
 
 pub fn init() -> MmemoResult<()> {
@@ -37,12 +38,21 @@ pub fn new(config: Config, title: Vec<String>) -> MmemoResult<()> {
     if extension.is_none() {
         filename = format!("{}.md", filename);
     }
-    let memo_dir = config.memo_dir.expand_home()?;
+
+    let file_path = config.memo_dir.expand_home()?.join(&filename);
+
+    if !file_path.exists()
+        && let Some(path) = config.memo_template
+    {
+        let file = File::open(path.expand_home()?)?;
+        let template = Template::load(&title.join(" "), file)?;
+        fs::write(&file_path, template)?;
+    }
 
     process::Command::new(config.editor)
-        .current_dir(memo_dir)
-        .arg(filename)
+        .arg(&file_path)
         .status()?;
+
     Ok(())
 }
 
