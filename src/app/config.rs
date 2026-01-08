@@ -241,7 +241,11 @@ impl TryFrom<Vec<Token>> for Config {
                 ConfigKey::Editor => editor = value,
                 ConfigKey::MemoDir => memo_dir = value.map(PathBuf::from),
                 ConfigKey::MemoTemplate => memo_template = value.map(PathBuf::from),
-                ConfigKey::Selector => selector = value.and_then(|s| s.parse().ok()),
+                ConfigKey::Selector => {
+                    selector = value
+                        .and_then(|s| s.parse().ok())
+                        .or(Some(SelectorKind::Builtin))
+                }
                 ConfigKey::Viewer => {
                     viewer = value
                         .and_then(|v| v.parse().ok())
