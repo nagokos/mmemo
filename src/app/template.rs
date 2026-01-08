@@ -21,7 +21,8 @@ impl Template {
 
         let content = buf
             .replace("{{title}}", title)
-            .replace("{{date}}", &created_time);
+            .replace("{{date}}", &created_time)
+            .replace("{{tags}}", "tags: []");
 
         Ok(content)
     }

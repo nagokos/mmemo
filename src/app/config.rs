@@ -129,11 +129,22 @@ impl Config {
         let mut file = File::create(config_path()?)?;
 
         let default = concat!(
+            "# Editor to use for editing memos (optional, default: vim)\n",
             "editor = \"vim\"\n",
+            "\n",
+            "# Directory to store memos (required)\n",
             "memo_dir = \"~/mmemo\"\n",
-            // これもパスにしてしまう
+            "\n",
+            "# Template file for new memos (optional)\n",
+            "# Supports {{title}} and {{date}} } placeholders\n",
+            "# Format: YAML front matter\n",
             "memo_template = \"~/.config/mmemo/template.md\"\n",
-            "selector = \"builtin\"\n"
+            "\n",
+            "# Selector: builtin or fzf or skim (optional, default: builtin)\n",
+            "selector = \"builtin\"\n",
+            "\n",
+            "# Viewer: builtin or glow (optional, default: builtin)\n",
+            "viewer = \"builtin\"\n"
         );
 
         file.write_all(default.as_bytes())?;
@@ -143,7 +154,14 @@ impl Config {
     fn write_default_template() -> MmemoResult<()> {
         let mut file = File::create(template_path()?)?;
 
-        let default = "# {title}\n\nDate: {date}\n\n";
+        let default = concat!(
+            "---\n",
+            "title: {{title}}\n",
+            "date: {{date}}\n",
+            "{{tags}}\n",
+            "---\n",
+            "\n"
+        );
         file.write_all(default.as_bytes())?;
 
         Ok(())
@@ -183,10 +201,10 @@ impl TryFrom<Vec<Token>> for Config {
     type Error = ConfigBuildError;
 
     fn try_from(tokens: Vec<Token>) -> Result<Self, Self::Error> {
-        let mut editor: Option<String> = None;
+        let mut editor: Option<String> = Some("vim".into());
         let mut memo_dir: Option<PathBuf> = None;
         let mut memo_template: Option<PathBuf> = None;
-        let mut selector: Option<SelectorKind> = None;
+        let mut selector: Option<SelectorKind> = Some(SelectorKind::Builtin);
         let mut viewer: Option<ViewerKind> = Some(ViewerKind::Builtin);
 
         for token in tokens {
