@@ -6,6 +6,8 @@ mod app;
 
 #[derive(Debug, thiserror::Error)]
 enum CliParseError {
+    // TODO: cr helloとかでParse error: helloになるのはおかしいので考える
+    // helpと同じような感じでもいいのかも
     #[error("Parse error: {command}")]
     UnknownCommand { command: String },
 
@@ -24,7 +26,6 @@ enum Command {
     Delete,
     List,
     Grep,
-    Cat,
     View,
     Config,
     Help,
@@ -76,7 +77,6 @@ impl FromStr for Command {
             "delete" => Ok(Command::Delete),
             "list" => Ok(Command::List),
             "grep" => Ok(Command::Grep),
-            "cat" => Ok(Command::Cat),
             "view" => Ok(Command::View),
             "config" => Ok(Command::Config),
             "help" | "-h" | "--help" => Ok(Command::Help),
@@ -95,7 +95,6 @@ impl Display for Command {
             Command::Delete => write!(f, "delete"),
             Command::List => write!(f, "list"),
             Command::Grep => write!(f, "grep"),
-            Command::Cat => write!(f, "cat"),
             Command::View => write!(f, "view"),
             Command::Config => write!(f, "config"),
             Command::Help => write!(f, "help"),

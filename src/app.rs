@@ -10,6 +10,7 @@ pub mod expand;
 pub mod path_utils;
 
 pub mod selector;
+pub mod template;
 
 pub fn run(cmd: Command) -> MmemoResult<()> {
     match cmd {
@@ -24,7 +25,6 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
                 Command::Delete => commands::delete(config)?,
                 Command::List => commands::list(config)?,
                 Command::Grep => todo!(),
-                Command::Cat => todo!(),
                 Command::View => todo!(),
                 Command::Config => commands::config(config)?,
                 _ => unreachable!(),
