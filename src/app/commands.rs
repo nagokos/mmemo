@@ -89,14 +89,14 @@ pub fn delete(config: Config) -> MmemoResult<()> {
 pub fn dir_files(dir: &Path) -> MmemoResult<Vec<String>> {
     let mut files = Vec::new();
     let mut cd = |entry: &DirEntry| {
-        files.push(
-            entry
-                .path()
-                .strip_prefix(dir)
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-        );
+        let file = entry
+            .path()
+            .strip_prefix(dir)
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
+        files.push(file);
     };
     visit_dirs(dir, &mut cd)?;
 
@@ -108,6 +108,10 @@ fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
+            if entry.file_name().to_string_lossy().starts_with(".") {
+                continue;
+            }
+
             if path.is_dir() {
                 visit_dirs(&path, cb)?;
             } else {
@@ -137,7 +141,7 @@ pub fn list(config: Config) -> MmemoResult<()> {
             date_time.day()
         );
 
-        println!("{}\t{}", file, created_time);
+        println!("{:<width$} {}", file, created_time, width = 40)
     }
 
     println!("\nTotal: {} memos", files.len());
