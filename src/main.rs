@@ -25,7 +25,7 @@ enum Command {
     Edit,
     Delete,
     List,
-    Grep,
+    Grep(Vec<String>, String),
     View,
     Config,
     Help,
@@ -55,8 +55,29 @@ impl Command {
                     Command::Delete => Ok(Command::Delete),
                     Command::List => Ok(Command::List),
                     Command::View => Ok(Command::View),
+                    Command::Grep(_, _) => {
+                        let mut options = Vec::new();
+                        let mut target = String::new();
+
+                        for arg in args.into_iter().skip(1) {
+                            if arg.starts_with("-") {
+                                options.push(arg);
+                                continue;
+                            } else {
+                                target = arg;
+                            }
+                        }
+
+                        if target.is_empty() {
+                            return Err(CliParseError::MissingArgument {
+                                usage: "mmemo grep <target>".to_string(),
+                            });
+                        }
+                        Ok(Command::Grep(options, target))
+                    }
                     Command::Config => Ok(Command::Config),
-                    _ => todo!(),
+                    Command::Help => todo!(),
+                    Command::Version => todo!(),
                 }
             }
             None => Err(CliParseError::CommandNotFound),
@@ -72,14 +93,14 @@ impl FromStr for Command {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "init" => Ok(Command::Init),
-            "new" => Ok(Command::New(Vec::new())),
-            "edit" => Ok(Command::Edit),
-            "delete" => Ok(Command::Delete),
-            "list" => Ok(Command::List),
-            "grep" => Ok(Command::Grep),
-            "view" => Ok(Command::View),
-            "config" => Ok(Command::Config),
+            "init" | "i" => Ok(Command::Init),
+            "new" | "n" => Ok(Command::New(Vec::new())),
+            "edit" | "e" => Ok(Command::Edit),
+            "delete" | "d" => Ok(Command::Delete),
+            "list" | "l" => Ok(Command::List),
+            "grep" | "g" => Ok(Command::Grep(Vec::new(), String::new())),
+            "view" | "v" => Ok(Command::View),
+            "config" | "c" => Ok(Command::Config),
             "help" | "-h" | "--help" => Ok(Command::Help),
             "version" | "-v" | "--version" => Ok(Command::Version),
             _ => Err(CommandParseError),
@@ -95,7 +116,7 @@ impl Display for Command {
             Command::Edit => write!(f, "edit"),
             Command::Delete => write!(f, "delete"),
             Command::List => write!(f, "list"),
-            Command::Grep => write!(f, "grep"),
+            Command::Grep(o, s) => write!(f, "grep {} {}", o.join(" "), s),
             Command::View => write!(f, "view"),
             Command::Config => write!(f, "config"),
             Command::Help => write!(f, "help"),

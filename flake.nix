@@ -61,6 +61,7 @@
                 fzf
                 skim
                 glow
+                ripgrep
               ]
               ++ rust-toolchain;
             };

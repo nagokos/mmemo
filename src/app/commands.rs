@@ -1,6 +1,6 @@
 use std::{
     fs::{self, DirEntry, File},
-    io::{self, Read},
+    io::{self, BufRead, BufReader, Read},
     path::Path,
     process,
 };
@@ -9,7 +9,7 @@ use chrono::{DateTime, Datelike, Utc};
 use termimad::{Alignment, MadSkin};
 
 use crate::app::{
-    config::{Config, InitStatus, ViewerKind},
+    config::{Config, GrepKind, InitStatus, ViewerKind},
     error::{MmemoError, MmemoResult},
     expand::HomeDir,
     path_utils::{config_dir, config_path},
@@ -40,6 +40,7 @@ pub fn new(config: Config, title: Vec<String>) -> MmemoResult<()> {
         filename = format!("{}.md", filename);
     }
 
+    // TODO: templateあるなしでファイルの作成の有無が変わってる
     let file_path = config.memo_dir.expand_home()?.join(&filename);
 
     if !file_path.exists()
@@ -187,6 +188,49 @@ pub fn view(config: Config) -> MmemoResult<()> {
     }
     Ok(())
 }
+
+pub fn grep(config: Config, options: Vec<String>, target: String) -> MmemoResult<()> {
+    let memo_dir = config.memo_dir.expand_home()?;
+
+    match config.grep {
+        GrepKind::Builtin => {
+            let files = dir_files(&memo_dir)?;
+            for file in files {
+                let f = File::open(memo_dir.join(&file))?;
+                let reader = BufReader::new(f);
+
+                let lines: Vec<_> = reader
+                    .lines()
+                    .enumerate()
+                    .filter_map(|(i, line)| {
+                        let line = line.ok()?;
+                        line.contains(&target).then(|| (i + 1, line))
+                    })
+                    .collect();
+
+                if !lines.is_empty() {
+                    println!("{}", file);
+                    for (row, line) in lines {
+                        let highlighted =
+                            line.replace(&target, &format!("\x1b[31m{}\x1b[0m", target));
+                        println!("{}: {}", row, highlighted);
+                    }
+                    println!();
+                }
+            }
+        }
+        GrepKind::Rg => {
+            process::Command::new("rg")
+                .current_dir(memo_dir)
+                .args(options)
+                .arg(target)
+                .status()?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn config(config: Config) -> MmemoResult<()> {
     process::Command::new(config.editor)
         .current_dir(config_dir()?)

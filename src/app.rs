@@ -17,19 +17,13 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
         Command::Init => commands::init()?,
         Command::Help => todo!(),
         Command::Version => todo!(),
-        _ => {
-            let config = Config::load()?;
-            match cmd {
-                Command::New(s) => commands::new(config, s)?,
-                Command::Edit => commands::edit(config)?,
-                Command::Delete => commands::delete(config)?,
-                Command::List => commands::list(config)?,
-                Command::Grep => todo!(),
-                Command::View => commands::view(config)?,
-                Command::Config => commands::config(config)?,
-                _ => unreachable!(),
-            }
-        }
+        Command::New(s) => commands::new(Config::load()?, s)?,
+        Command::Edit => commands::edit(Config::load()?)?,
+        Command::Delete => commands::delete(Config::load()?)?,
+        Command::List => commands::list(Config::load()?)?,
+        Command::Grep(o, s) => commands::grep(Config::load()?, o, s)?,
+        Command::View => commands::view(Config::load()?)?,
+        Command::Config => commands::config(Config::load()?)?,
     }
     Ok(())
 }

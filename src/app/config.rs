@@ -89,6 +89,28 @@ pub struct Config {
     pub memo_template: Option<PathBuf>,
     pub selector: SelectorKind,
     pub viewer: ViewerKind,
+    pub grep: GrepKind,
+}
+
+#[derive(Debug)]
+pub enum GrepKind {
+    Builtin,
+    Rg,
+}
+
+#[derive(Debug)]
+pub struct ParseGrepKindError;
+
+impl FromStr for GrepKind {
+    type Err = ParseGrepKindError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "builtin" => Ok(GrepKind::Builtin),
+            "rg" | "ripgrep" => Ok(GrepKind::Rg),
+            _ => Err(ParseGrepKindError),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -144,7 +166,10 @@ impl Config {
             "selector = \"builtin\"\n",
             "\n",
             "# Viewer: builtin or glow (optional, default: builtin)\n",
-            "viewer = \"builtin\"\n"
+            "viewer = \"builtin\"\n",
+            "\n",
+            "# Grep: builtin or ripgrep(rg) (optional, default: builtin)\n",
+            "grep = \"builtin\"\n"
         );
 
         file.write_all(default.as_bytes())?;
@@ -206,6 +231,7 @@ impl TryFrom<Vec<Token>> for Config {
         let mut memo_template: Option<PathBuf> = None;
         let mut selector: Option<SelectorKind> = Some(SelectorKind::Builtin);
         let mut viewer: Option<ViewerKind> = Some(ViewerKind::Builtin);
+        let mut grep: Option<GrepKind> = Some(GrepKind::Builtin);
 
         for token in tokens {
             let value = token.value.trim();
@@ -221,20 +247,31 @@ impl TryFrom<Vec<Token>> for Config {
                         .and_then(|v| v.parse().ok())
                         .or(Some(ViewerKind::Builtin))
                 }
+                ConfigKey::Grep => {
+                    grep = value
+                        .and_then(|v| v.parse().ok())
+                        .or(Some(GrepKind::Builtin))
+                }
             }
         }
 
-        match (editor, memo_dir, memo_template, selector, viewer) {
-            (Some(editor), Some(memo_dir), memo_template, Some(selector), Some(viewer)) => {
-                Ok(Config {
-                    editor,
-                    memo_dir,
-                    memo_template,
-                    selector,
-                    viewer,
-                })
-            }
-            (_, d, _, _, _) => {
+        match (editor, memo_dir, memo_template, selector, viewer, grep) {
+            (
+                Some(editor),
+                Some(memo_dir),
+                memo_template,
+                Some(selector),
+                Some(viewer),
+                Some(grep),
+            ) => Ok(Config {
+                editor,
+                memo_dir,
+                memo_template,
+                selector,
+                viewer,
+                grep,
+            }),
+            (_, d, _, _, _, _) => {
                 let vec = [(d.is_none(), "memo_dir")];
 
                 let errors: Vec<String> = vec
@@ -260,6 +297,7 @@ enum ConfigKey {
     MemoTemplate,
     Selector,
     Viewer,
+    Grep,
 }
 
 impl Display for ConfigKey {
@@ -270,6 +308,7 @@ impl Display for ConfigKey {
             ConfigKey::MemoTemplate => write!(f, "memo_template"),
             ConfigKey::Selector => write!(f, "selector"),
             ConfigKey::Viewer => write!(f, "viewer"),
+            ConfigKey::Grep => write!(f, "grep"),
         }
     }
 }
@@ -284,6 +323,7 @@ impl FromStr for ConfigKey {
             "memo_template" => Ok(ConfigKey::MemoTemplate),
             "selector" => Ok(ConfigKey::Selector),
             "viewer" => Ok(ConfigKey::Viewer),
+            "grep" => Ok(ConfigKey::Grep),
             _ => Err(ParseConfigKeyError),
         }
     }
