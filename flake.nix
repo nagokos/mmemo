@@ -60,6 +60,7 @@
               packages = [
                 fzf
                 skim
+                glow
               ]
               ++ rust-toolchain;
             };

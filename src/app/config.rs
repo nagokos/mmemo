@@ -88,6 +88,27 @@ pub struct Config {
     pub memo_dir: PathBuf,
     pub memo_template: Option<PathBuf>,
     pub selector: SelectorKind,
+    pub viewer: ViewerKind,
+}
+
+#[derive(Debug)]
+pub enum ViewerKind {
+    Builtin,
+    Glow,
+}
+
+pub struct ParseViewerKindError;
+
+impl FromStr for ViewerKind {
+    type Err = ParseViewerKindError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "builtin" => Ok(ViewerKind::Builtin),
+            "glow" => Ok(ViewerKind::Glow),
+            _ => Err(ParseViewerKindError),
+        }
+    }
 }
 
 impl Config {
@@ -166,6 +187,7 @@ impl TryFrom<Vec<Token>> for Config {
         let mut memo_dir: Option<PathBuf> = None;
         let mut memo_template: Option<PathBuf> = None;
         let mut selector: Option<SelectorKind> = None;
+        let mut viewer: Option<ViewerKind> = Some(ViewerKind::Builtin);
 
         for token in tokens {
             let value = token.value.trim();
@@ -176,22 +198,26 @@ impl TryFrom<Vec<Token>> for Config {
                 ConfigKey::MemoDir => memo_dir = value.map(PathBuf::from),
                 ConfigKey::MemoTemplate => memo_template = value.map(PathBuf::from),
                 ConfigKey::Selector => selector = value.and_then(|s| s.parse().ok()),
+                ConfigKey::Viewer => {
+                    viewer = value
+                        .and_then(|v| v.parse().ok())
+                        .or(Some(ViewerKind::Builtin))
+                }
             }
         }
 
-        match (editor, memo_dir, memo_template, selector) {
-            (Some(editor), Some(memo_dir), memo_template, Some(selector)) => Ok(Config {
-                editor,
-                memo_dir,
-                memo_template,
-                selector,
-            }),
-            (e, d, _, s) => {
-                let vec = [
-                    (e.is_none(), "editor"),
-                    (d.is_none(), "memo_dir"),
-                    (s.is_none(), "selector"),
-                ];
+        match (editor, memo_dir, memo_template, selector, viewer) {
+            (Some(editor), Some(memo_dir), memo_template, Some(selector), Some(viewer)) => {
+                Ok(Config {
+                    editor,
+                    memo_dir,
+                    memo_template,
+                    selector,
+                    viewer,
+                })
+            }
+            (_, d, _, _, _) => {
+                let vec = [(d.is_none(), "memo_dir")];
 
                 let errors: Vec<String> = vec
                     .into_iter()
@@ -206,7 +232,7 @@ impl TryFrom<Vec<Token>> for Config {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 struct ParseConfigKeyError;
 
 #[derive(Debug)]
@@ -215,6 +241,7 @@ enum ConfigKey {
     MemoDir,
     MemoTemplate,
     Selector,
+    Viewer,
 }
 
 impl Display for ConfigKey {
@@ -224,6 +251,7 @@ impl Display for ConfigKey {
             ConfigKey::MemoDir => write!(f, "memo_dir"),
             ConfigKey::MemoTemplate => write!(f, "memo_template"),
             ConfigKey::Selector => write!(f, "selector"),
+            ConfigKey::Viewer => write!(f, "viewer"),
         }
     }
 }
@@ -237,6 +265,7 @@ impl FromStr for ConfigKey {
             "memo_dir" => Ok(ConfigKey::MemoDir),
             "memo_template" => Ok(ConfigKey::MemoTemplate),
             "selector" => Ok(ConfigKey::Selector),
+            "viewer" => Ok(ConfigKey::Viewer),
             _ => Err(ParseConfigKeyError),
         }
     }

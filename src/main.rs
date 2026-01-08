@@ -54,6 +54,7 @@ impl Command {
                     Command::Edit => Ok(Command::Edit),
                     Command::Delete => Ok(Command::Delete),
                     Command::List => Ok(Command::List),
+                    Command::View => Ok(Command::View),
                     Command::Config => Ok(Command::Config),
                     _ => todo!(),
                 }

@@ -1,15 +1,16 @@
 use std::{
     fs::{self, DirEntry, File},
-    io::{self},
+    io::{self, Read},
     path::Path,
     process,
 };
 
 use chrono::{DateTime, Datelike, Utc};
+use termimad::{Alignment, MadSkin};
 
 use crate::app::{
-    config::{Config, InitStatus},
-    error::MmemoResult,
+    config::{Config, InitStatus, ViewerKind},
+    error::{MmemoError, MmemoResult},
     expand::HomeDir,
     path_utils::{config_dir, config_path},
     selector,
@@ -149,6 +150,43 @@ pub fn list(config: Config) -> MmemoResult<()> {
     Ok(())
 }
 
+pub fn view(config: Config) -> MmemoResult<()> {
+    let memo_dir = config.memo_dir.expand_home()?;
+    let files = dir_files(&memo_dir)?;
+
+    let selector = selector::selector_select(config.selector);
+    if let Some(result) = selector.select(files)? {
+        match config.viewer {
+            ViewerKind::Builtin => {
+                let mut file = File::open(memo_dir.join(result))?;
+                let mut buf = String::new();
+                file.read_to_string(&mut buf)?;
+                let mut skin = MadSkin::default();
+                for header in &mut skin.headers {
+                    header.align = Alignment::Left;
+                }
+                skin.print_text(&buf);
+            }
+            ViewerKind::Glow => {
+                process::Command::new("glow")
+                    .current_dir(memo_dir)
+                    .arg(result)
+                    .status()
+                    .map_err(|e| {
+                        if e.kind() == std::io::ErrorKind::NotFound {
+                            MmemoError::Config {
+                                message: "glow not found. Install glow or use builtin viewer"
+                                    .to_string(),
+                            }
+                        } else {
+                            e.into()
+                        }
+                    })?;
+            }
+        }
+    }
+    Ok(())
+}
 pub fn config(config: Config) -> MmemoResult<()> {
     process::Command::new(config.editor)
         .current_dir(config_dir()?)
