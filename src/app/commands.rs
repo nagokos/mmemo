@@ -14,7 +14,7 @@ use crate::app::{
     expand::HomeDir,
     path_utils::{config_dir, config_path},
     selector,
-    template::{self, load_template},
+    template::load_template,
 };
 
 pub fn init() -> MmemoResult<()> {
@@ -189,18 +189,32 @@ pub fn view(config: &Config) -> MmemoResult<()> {
     Ok(())
 }
 
-pub fn grep(config: &Config, options: &[String], target: &str) -> MmemoResult<()> {
+pub fn grep(config: &Config, rest: &[String]) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
 
     match config.grep {
         GrepKind::Builtin => {
-            if !options.is_empty() {
+            if rest.iter().any(|s| s.is_empty()) {
                 return Err(MmemoError::InvalidArgs {
-                    message: "builtin grep does not support options (use rg backend)".into(),
+                    message: "empty pattern".into(),
                 });
             }
 
+            if rest.iter().any(|a| a.starts_with('-')) {
+                return Err(MmemoError::InvalidArgs {
+                    message: "builtin grep does not support options (set grep = \"ripgrep\")"
+                        .into(),
+                });
+            }
+
+            let needles: Vec<String> = rest
+                .iter()
+                .filter(|s| !s.starts_with('-'))
+                .cloned()
+                .collect();
+
             let files = dir_files(&memo_dir)?;
+
             for file in files {
                 let f = File::open(memo_dir.join(&file))?;
                 let reader = BufReader::new(f);
@@ -210,16 +224,15 @@ pub fn grep(config: &Config, options: &[String], target: &str) -> MmemoResult<()
                     .enumerate()
                     .filter_map(|(i, line)| {
                         let line = line.ok()?;
-                        line.contains(target).then(|| (i + 1, line))
+                        rest.iter().all(|r| line.contains(r)).then(|| (i + 1, line))
                     })
                     .collect();
 
                 if !lines.is_empty() {
                     println!("{}", file);
+
                     for (row, line) in lines {
-                        let highlighted =
-                            line.replace(target, &format!("\x1b[31m{}\x1b[0m", target));
-                        println!("{}: {}", row, highlighted);
+                        println!("{}: {}", row, highlight_all(&line, &needles));
                     }
                     println!();
                 }
@@ -228,13 +241,51 @@ pub fn grep(config: &Config, options: &[String], target: &str) -> MmemoResult<()
         GrepKind::Rg => {
             process::Command::new("rg")
                 .current_dir(memo_dir)
-                .args(options)
-                .arg(target)
+                .args(rest)
                 .status()?;
         }
     }
 
     Ok(())
+}
+
+fn highlight_all(line: &str, needles: &[String]) -> String {
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+
+    for n in needles {
+        if n.is_empty() {
+            continue;
+        }
+        for (start, _) in line.match_indices(n) {
+            ranges.push((start, start + n.len()));
+        }
+    }
+
+    if ranges.is_empty() {
+        return line.to_string();
+    }
+
+    // 位置順に並べて、重なりはマージ（“赤くする領域の和集合”にする）
+    ranges.sort_by_key(|(s, e)| (*s, *e));
+    let mut merged: Vec<(usize, usize)> = Vec::new();
+    for (s, e) in ranges {
+        match merged.last_mut() {
+            Some((ls, le)) if s <= *le => *le = (*le).max(e),
+            _ => merged.push((s, e)),
+        }
+    }
+
+    let mut out = String::new();
+    let mut cur = 0;
+    for (s, e) in merged {
+        out.push_str(&line[cur..s]);
+        out.push_str("\x1b[31m");
+        out.push_str(&line[s..e]);
+        out.push_str("\x1b[0m");
+        cur = e;
+    }
+    out.push_str(&line[cur..]);
+    out
 }
 
 pub fn config(config: &Config) -> MmemoResult<()> {

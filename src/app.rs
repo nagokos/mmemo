@@ -24,7 +24,7 @@ pub fn run(cmd: Command) -> MmemoResult<()> {
                 Command::Edit => commands::edit(&config)?,
                 Command::Delete => commands::delete(&config)?,
                 Command::List => commands::list(&config)?,
-                Command::Grep(o, s) => commands::grep(&config, &o, &s)?,
+                Command::Grep(r) => commands::grep(&config, &r)?,
                 Command::View => commands::view(&config)?,
                 Command::Config => commands::config(&config)?,
                 _ => unreachable!(),
