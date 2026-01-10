@@ -14,7 +14,7 @@ use crate::app::{
     expand::HomeDir,
     path_utils::{config_dir, config_path},
     selector,
-    template::Template,
+    template::{self, load_template},
 };
 
 pub fn init() -> MmemoResult<()> {
@@ -47,7 +47,7 @@ pub fn new(config: &Config, title: &str) -> MmemoResult<()> {
         && let Some(path) = config.memo_template.clone()
     {
         let file = File::open(path.expand_home()?)?;
-        let template = Template::load(title, file)?;
+        let template = load_template(title, file)?;
         fs::write(&file_path, template)?;
     }
 

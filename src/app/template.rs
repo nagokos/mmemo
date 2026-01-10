@@ -1,29 +1,16 @@
-use std::{fs::File, io::Read};
-
-use chrono::{DateTime, Datelike, Utc};
+use std::io::Read;
 
 use crate::app::error::MmemoResult;
 
-pub struct Template;
+pub fn load_template(title: &str, mut file: impl Read) -> MmemoResult<String> {
+    let mut buf = String::new();
+    file.read_to_string(&mut buf)?;
 
-impl Template {
-    pub fn load(title: &str, mut file: File) -> MmemoResult<String> {
-        let mut buf = String::new();
-        file.read_to_string(&mut buf)?;
+    let created_date = chrono::Utc::now().date_naive(); // "YYYY-MM-DD"
+    let content = buf
+        .replace("{{title}}", title)
+        .replace("{{date}}", &created_date.to_string())
+        .replace("{{tags}}", "tags: []");
 
-        let date_time: DateTime<Utc> = Utc::now();
-        let created_time = format!(
-            "{}-{:02}-{:02}",
-            date_time.year(),
-            date_time.month(),
-            date_time.day()
-        );
-
-        let content = buf
-            .replace("{{title}}", title)
-            .replace("{{date}}", &created_time)
-            .replace("{{tags}}", "tags: []");
-
-        Ok(content)
-    }
+    Ok(content)
 }
