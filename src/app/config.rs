@@ -14,11 +14,11 @@ use crate::app::{
     path_utils::{config_dir, config_path, mmemo_dir, template_path},
 };
 
-struct Lexer {
+struct ConfigParser {
     contents: String,
 }
 
-impl Lexer {
+impl ConfigParser {
     fn new(mut file: File) -> MmemoResult<Self> {
         let mut buf = String::new();
         file.read_to_string(&mut buf)?;
@@ -208,7 +208,7 @@ impl Config {
         let file = File::open(config_path()?).map_err(|_| MmemoError::Config {
             message: "Configuration file not found. Please run 'mmemo init'.".to_string(),
         })?;
-        let tokens = Lexer::new(file)?.tokenize()?;
+        let tokens = ConfigParser::new(file)?.tokenize()?;
 
         let config = Config::try_from(tokens).map_err(|e| MmemoError::Config {
             message: e.0.join("\n"),
