@@ -51,7 +51,7 @@ pub fn new(config: &Config, title: &str) -> MmemoResult<()> {
         fs::write(&file_path, template)?;
     }
 
-    process::Command::new(config.editor.clone())
+    process::Command::new(&config.editor)
         .arg(&file_path)
         .status()?;
 
@@ -64,7 +64,7 @@ pub fn edit(config: &Config) -> MmemoResult<()> {
 
     let selector = selector::selector_select(&config.selector);
     if let Some(result) = selector.select(files)? {
-        process::Command::new(config.editor.clone())
+        process::Command::new(&config.editor)
             .current_dir(memo_dir)
             .arg(result)
             .status()?;
@@ -238,7 +238,7 @@ pub fn grep(config: &Config, options: &[String], target: &str) -> MmemoResult<()
 }
 
 pub fn config(config: &Config) -> MmemoResult<()> {
-    process::Command::new(config.editor.clone())
+    process::Command::new(&config.editor)
         .current_dir(config_dir()?)
         .arg("config.toml")
         .status()?;
