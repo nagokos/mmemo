@@ -31,8 +31,8 @@ pub fn init() -> MmemoResult<()> {
     Ok(())
 }
 
-pub fn new(config: Config, title: Vec<String>) -> MmemoResult<()> {
-    let mut filename = title.join("_");
+pub fn new(config: &Config, title: &str) -> MmemoResult<()> {
+    let mut filename = title.replace(" ", "_");
 
     let extension = Path::new(&filename).extension();
 
@@ -44,27 +44,27 @@ pub fn new(config: Config, title: Vec<String>) -> MmemoResult<()> {
     let file_path = config.memo_dir.expand_home()?.join(&filename);
 
     if !file_path.exists()
-        && let Some(path) = config.memo_template
+        && let Some(path) = config.memo_template.clone()
     {
         let file = File::open(path.expand_home()?)?;
-        let template = Template::load(&title.join(" "), file)?;
+        let template = Template::load(title, file)?;
         fs::write(&file_path, template)?;
     }
 
-    process::Command::new(config.editor)
+    process::Command::new(config.editor.clone())
         .arg(&file_path)
         .status()?;
 
     Ok(())
 }
 
-pub fn edit(config: Config) -> MmemoResult<()> {
+pub fn edit(config: &Config) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
     let files = dir_files(&memo_dir)?;
 
-    let selector = selector::selector_select(config.selector);
+    let selector = selector::selector_select(&config.selector);
     if let Some(result) = selector.select(files)? {
-        process::Command::new(config.editor)
+        process::Command::new(config.editor.clone())
             .current_dir(memo_dir)
             .arg(result)
             .status()?;
@@ -73,11 +73,11 @@ pub fn edit(config: Config) -> MmemoResult<()> {
     Ok(())
 }
 
-pub fn delete(config: Config) -> MmemoResult<()> {
+pub fn delete(config: &Config) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
     let files = dir_files(&memo_dir)?;
 
-    let selector = selector::selector_select(config.selector);
+    let selector = selector::selector_select(&config.selector);
     if let Some(result) = selector.select(files)? {
         process::Command::new("rm")
             .current_dir(memo_dir)
@@ -124,7 +124,7 @@ fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
     Ok(())
 }
 
-pub fn list(config: Config) -> MmemoResult<()> {
+pub fn list(config: &Config) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
 
     println!("Memos in {}:\n", memo_dir.display());
@@ -151,11 +151,11 @@ pub fn list(config: Config) -> MmemoResult<()> {
     Ok(())
 }
 
-pub fn view(config: Config) -> MmemoResult<()> {
+pub fn view(config: &Config) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
     let files = dir_files(&memo_dir)?;
 
-    let selector = selector::selector_select(config.selector);
+    let selector = selector::selector_select(&config.selector);
     if let Some(result) = selector.select(files)? {
         match config.viewer {
             ViewerKind::Builtin => {
@@ -189,11 +189,17 @@ pub fn view(config: Config) -> MmemoResult<()> {
     Ok(())
 }
 
-pub fn grep(config: Config, options: Vec<String>, target: String) -> MmemoResult<()> {
+pub fn grep(config: &Config, options: &[String], target: &str) -> MmemoResult<()> {
     let memo_dir = config.memo_dir.expand_home()?;
 
     match config.grep {
         GrepKind::Builtin => {
+            if !options.is_empty() {
+                return Err(MmemoError::InvalidArgs {
+                    message: "builtin grep does not support options (use rg backend)".into(),
+                });
+            }
+
             let files = dir_files(&memo_dir)?;
             for file in files {
                 let f = File::open(memo_dir.join(&file))?;
@@ -204,7 +210,7 @@ pub fn grep(config: Config, options: Vec<String>, target: String) -> MmemoResult
                     .enumerate()
                     .filter_map(|(i, line)| {
                         let line = line.ok()?;
-                        line.contains(&target).then(|| (i + 1, line))
+                        line.contains(target).then(|| (i + 1, line))
                     })
                     .collect();
 
@@ -212,7 +218,7 @@ pub fn grep(config: Config, options: Vec<String>, target: String) -> MmemoResult
                     println!("{}", file);
                     for (row, line) in lines {
                         let highlighted =
-                            line.replace(&target, &format!("\x1b[31m{}\x1b[0m", target));
+                            line.replace(target, &format!("\x1b[31m{}\x1b[0m", target));
                         println!("{}: {}", row, highlighted);
                     }
                     println!();
@@ -231,10 +237,45 @@ pub fn grep(config: Config, options: Vec<String>, target: String) -> MmemoResult
     Ok(())
 }
 
-pub fn config(config: Config) -> MmemoResult<()> {
-    process::Command::new(config.editor)
+pub fn config(config: &Config) -> MmemoResult<()> {
+    process::Command::new(config.editor.clone())
         .current_dir(config_dir()?)
         .arg("config.toml")
         .status()?;
     Ok(())
+}
+
+const HELP: &str = r#"mmemo - A simple CLI memo management tool
+
+USAGE:
+    mmemo <COMMAND>
+
+COMMANDS:
+    init, i      Initialize configuration
+    new, n       Create a new memo
+    list, l      List all memos
+    edit, e      Edit a memo
+    view, v      View a memo
+    grep, g      Search memos for a pattern
+    delete, d    Delete a memo
+    config, c    Show config path
+    help, h      Show this help
+    version, v   Show version
+
+OPTIONS:
+    -h, --help       Show help
+    -v, --version    Show version
+
+EXAMPLES:
+    mmemo init
+    mmemo new "my memo" or my memo
+    mmemo list
+    mmemo grep todo
+"#;
+
+pub fn help() {
+    println!("{HELP}")
+}
+pub fn version() {
+    println!("mmemo {}", env!("CARGO_PKG_VERSION"));
 }

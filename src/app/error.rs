@@ -25,6 +25,9 @@ pub enum MmemoError {
 
     #[error("Memo search not found: {query}")]
     MemoNotFound { query: String },
+
+    #[error("Invalid arguments: {message}")]
+    InvalidArgs { message: String },
 }
 
 pub type MmemoResult<T> = std::result::Result<T, MmemoError>;

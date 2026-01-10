@@ -14,7 +14,7 @@ pub trait Selector {
     fn select(&self, items: Vec<String>) -> std::io::Result<Option<String>>;
 }
 
-pub fn selector_select(selector: SelectorKind) -> Box<dyn Selector> {
+pub fn selector_select(selector: &SelectorKind) -> Box<dyn Selector> {
     match selector {
         SelectorKind::Builtin => Box::new(Builtin),
         SelectorKind::Fzf => Box::new(Fzf),

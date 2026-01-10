@@ -16,12 +16,15 @@ enum CliParseError {
 
     #[error("Usage: {usage}")]
     MissingArgument { usage: String },
+
+    #[error("Usage: {usage}")]
+    TooManyArguments { usage: String },
 }
 
 #[derive(Debug)]
 enum Command {
     Init,
-    New(Vec<String>),
+    New(String),
     Edit,
     Delete,
     List,
@@ -49,7 +52,7 @@ impl Command {
                                 usage: "mmemo new <title>".to_string(),
                             });
                         }
-                        Ok(Command::New(title))
+                        Ok(Command::New(title.join(" ")))
                     }
                     Command::Edit => Ok(Command::Edit),
                     Command::Delete => Ok(Command::Delete),
@@ -62,22 +65,25 @@ impl Command {
                         for arg in args.into_iter().skip(1) {
                             if arg.starts_with("-") {
                                 options.push(arg);
-                                continue;
-                            } else {
+                            } else if target.is_empty() {
                                 target = arg;
+                            } else {
+                                return Err(CliParseError::TooManyArguments {
+                                    usage: "mmemo grep <pattern>".to_string(),
+                                });
                             }
                         }
 
                         if target.is_empty() {
                             return Err(CliParseError::MissingArgument {
-                                usage: "mmemo grep <target>".to_string(),
+                                usage: "mmemo grep <pattern>".to_string(),
                             });
                         }
                         Ok(Command::Grep(options, target))
                     }
                     Command::Config => Ok(Command::Config),
-                    Command::Help => todo!(),
-                    Command::Version => todo!(),
+                    Command::Help => Ok(Command::Help),
+                    Command::Version => Ok(Command::Version),
                 }
             }
             None => Err(CliParseError::CommandNotFound),
@@ -94,7 +100,7 @@ impl FromStr for Command {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "init" | "i" => Ok(Command::Init),
-            "new" | "n" => Ok(Command::New(Vec::new())),
+            "new" | "n" => Ok(Command::New(String::new())),
             "edit" | "e" => Ok(Command::Edit),
             "delete" | "d" => Ok(Command::Delete),
             "list" | "l" => Ok(Command::List),
@@ -112,7 +118,7 @@ impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Command::Init => write!(f, "init"),
-            Command::New(s) => write!(f, "new {}", s.join(" ")),
+            Command::New(s) => write!(f, "new {}", s),
             Command::Edit => write!(f, "edit"),
             Command::Delete => write!(f, "delete"),
             Command::List => write!(f, "list"),

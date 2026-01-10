@@ -15,15 +15,15 @@ pub mod template;
 pub fn run(cmd: Command) -> MmemoResult<()> {
     match cmd {
         Command::Init => commands::init()?,
-        Command::Help => todo!(),
-        Command::Version => todo!(),
-        Command::New(s) => commands::new(Config::load()?, s)?,
-        Command::Edit => commands::edit(Config::load()?)?,
-        Command::Delete => commands::delete(Config::load()?)?,
-        Command::List => commands::list(Config::load()?)?,
-        Command::Grep(o, s) => commands::grep(Config::load()?, o, s)?,
-        Command::View => commands::view(Config::load()?)?,
-        Command::Config => commands::config(Config::load()?)?,
+        Command::Help => commands::help(),
+        Command::Version => commands::version(),
+        Command::New(s) => commands::new(&Config::load()?, &s)?,
+        Command::Edit => commands::edit(&Config::load()?)?,
+        Command::Delete => commands::delete(&Config::load()?)?,
+        Command::List => commands::list(&Config::load()?)?,
+        Command::Grep(o, s) => commands::grep(&Config::load()?, &o, &s)?,
+        Command::View => commands::view(&Config::load()?)?,
+        Command::Config => commands::config(&Config::load()?)?,
     }
     Ok(())
 }

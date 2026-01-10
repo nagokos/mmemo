@@ -168,7 +168,7 @@ impl Config {
             "# Viewer: builtin or glow (optional, default: builtin)\n",
             "viewer = \"builtin\"\n",
             "\n",
-            "# Grep: builtin or ripgrep(rg) (optional, default: builtin)\n",
+            "# Grep: builtin or ripgrep() (optional, default: builtin)\n",
             "grep = \"builtin\"\n"
         );
 
