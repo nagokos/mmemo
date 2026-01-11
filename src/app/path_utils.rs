@@ -22,5 +22,5 @@ pub fn config_path() -> MmemoResult<PathBuf> {
 }
 
 pub fn template_path() -> MmemoResult<PathBuf> {
-    Ok(config_dir()?.join("template.md"))
+    Ok(config_dir()?.join("template.txt"))
 }

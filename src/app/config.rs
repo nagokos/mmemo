@@ -160,7 +160,7 @@ impl Config {
             "# Template file for new memos (optional)\n",
             "# Supports {{title}} and {{date}} placeholders\n",
             "# Format: YAML front matter\n",
-            "memo_template = \"~/.config/mmemo/template.md\"\n",
+            "memo_template = \"~/.config/mmemo/template.txt\"\n",
             "\n",
             "# Selector: builtin or fzf or skim (optional, default: builtin)\n",
             "selector = \"builtin\"\n",
@@ -183,9 +183,9 @@ impl Config {
             "---\n",
             "title: {{title}}\n",
             "date: {{date}}\n",
-            "{{tags}}\n",
             "---\n",
-            "\n"
+            "\n",
+            "# {{title}}"
         );
         file.write_all(default.as_bytes())?;
 
