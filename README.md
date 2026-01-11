@@ -48,7 +48,7 @@ Run `mmemo init` to create config.toml under your XDG config directory.
 
 ```toml
 # Editor to use for editing memos (optional, default: vim)
-editor = "nvim"
+editor = "vim"
 
 # Directory to store memos (required)
 memo_dir = "~/mmemo"
