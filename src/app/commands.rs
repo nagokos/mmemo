@@ -207,12 +207,6 @@ pub fn grep(config: &Config, rest: &[String]) -> MmemoResult<()> {
                 });
             }
 
-            let needles: Vec<String> = rest
-                .iter()
-                .filter(|s| !s.starts_with('-'))
-                .cloned()
-                .collect();
-
             let files = dir_files(&memo_dir)?;
 
             for file in files {
@@ -232,7 +226,7 @@ pub fn grep(config: &Config, rest: &[String]) -> MmemoResult<()> {
                     println!("{}", file);
 
                     for (row, line) in lines {
-                        println!("{}: {}", row, highlight_all(&line, &needles));
+                        println!("{}: {}", row, highlight_all(&line, rest));
                     }
                     println!();
                 }
@@ -266,7 +260,7 @@ fn highlight_all(line: &str, needles: &[String]) -> String {
     }
 
     // 位置順に並べて、重なりはマージ（“赤くする領域の和集合”にする）
-    ranges.sort_by_key(|(s, e)| (*s, *e));
+    ranges.sort_unstable_by_key(|(s, e)| (*s, *e));
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for (s, e) in ranges {
         match merged.last_mut() {
@@ -275,7 +269,7 @@ fn highlight_all(line: &str, needles: &[String]) -> String {
         }
     }
 
-    let mut out = String::new();
+    let mut out = String::with_capacity(line.len() + merged.len() * 10);
     let mut cur = 0;
     for (s, e) in merged {
         out.push_str(&line[cur..s]);
