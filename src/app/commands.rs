@@ -299,29 +299,57 @@ pub fn config(config: &Config) -> MmemoResult<()> {
 const HELP: &str = r#"mmemo - A simple CLI memo management tool
 
 USAGE:
-    mmemo <COMMAND>
+    mmemo <command> [args]
 
 COMMANDS:
-    init, i      Initialize configuration
-    new, n       Create a new memo
-    list, l      List all memos
-    edit, e      Edit a memo
-    view, v      View a memo
-    grep, g      Search memos for a pattern
-    delete, d    Delete a memo
-    config, c    Show config path
-    help, h      Show this help
-    version, v   Show version
+    init, i              Initialize configuration and create config.toml
+    new, n <title...>    Create a new memo (spaces are allowed)
+    list, l              List all memos
+    edit, e              Select and edit a memo
+    view, v              Select and view a memo
+    grep, g <pat...>     Search memos
+    delete, d            Select and delete a memo
+    config, c            Open config.toml in your editor
 
-OPTIONS:
-    -h, --help       Show help
-    -v, --version    Show version
+GLOBAL OPTIONS:
+    -h, --help           Show help
+    -v, --version        Show version
+
+NOTES:
+    The behavior of some commands depends on config.toml.
+
+    selector (used by edit/view/delete):
+      - selector = "builtin"  : use builtin selector
+      - selector = "fzf"      : use external "fzf"
+      - selector = "skim"     : use external "sk" (skim)
+
+    view:
+      - viewer = "builtin"    : render markdown in terminal
+      - viewer = "glow"       : use external "glow" command
+
+    grep:
+      - grep = "builtin"      : simple AND search (all patterns must appear in the line)
+      - grep = "ripgrep"      : pass arguments to "rg" as-is
+        (If a pattern starts with '-', use: mmemo grep -e "-foo")
+
+    If an external command is not found, switch the corresponding setting to "builtin".
 
 EXAMPLES:
     mmemo init
-    mmemo new "my memo" or my memo
+    mmemo new my memo
     mmemo list
-    mmemo grep todo
+
+    mmemo edit                         # selector depends on config.toml
+    mmemo view                         # selector/viewer depend on config.toml
+
+    mmemo grep todo                    # search "todo"
+    mmemo grep foo bar                 # AND search (builtin): both "foo" and "bar"
+    mmemo grep -n todo                 # ripgrep only (grep = "ripgrep")
+    mmemo grep -e "-foo"               # ripgrep: pattern starting with '-'
+
+    mmemo config
+    mmemo --help
+    mmemo --version
 "#;
 
 pub fn help() {

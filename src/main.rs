@@ -60,8 +60,8 @@ impl TryFrom<Vec<String>> for Command {
                 "view" | "v" => Ok(Command::View),
                 "config" | "c" => Ok(Command::Config),
                 // TODO: commandとして扱わないでここでやるとか
-                "help" | "-h" | "--help" => Ok(Command::Help),
-                "version" | "-v" | "--version" => Ok(Command::Version),
+                "-h" | "--help" => Ok(Command::Help),
+                "-v" | "--version" => Ok(Command::Version),
                 _ => Err(CliParseError::UnknownCommand { command: s.into() }),
             },
             None => Ok(Command::Help),

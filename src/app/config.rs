@@ -71,7 +71,7 @@ impl FromStr for SelectorKind {
         match s {
             "builtin" => Ok(SelectorKind::Builtin),
             "fzf" => Ok(SelectorKind::Fzf),
-            "skim" => Ok(SelectorKind::Skim),
+            "sk" | "skim" => Ok(SelectorKind::Skim),
             _ => Err(ParseSelectorKindError),
         }
     }
@@ -158,7 +158,7 @@ impl Config {
             "memo_dir = \"~/mmemo\"\n",
             "\n",
             "# Template file for new memos (optional)\n",
-            "# Supports {{title}} and {{date}} } placeholders\n",
+            "# Supports {{title}} and {{date}} placeholders\n",
             "# Format: YAML front matter\n",
             "memo_template = \"~/.config/mmemo/template.md\"\n",
             "\n",
