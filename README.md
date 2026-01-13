@@ -28,10 +28,15 @@ GLOBAL OPTIONS:
 ## Installation
 
 ### Nix (flake)
-
+Run once (no install):
 ```bash
-nix run github:<YOUR_NAME>/<REPO> -- --help
-nix run github:<YOUR_NAME>/<REPO> -- list
+nix run github:nagokos/mmemo -- --help
+```
+
+Install globally for your user (adds mmemo to your PATH):
+```
+nix profile install github:nagokos/mmemo
+mmemo --version
 ```
 
 ### Cargo (crates.io)
