@@ -23,9 +23,6 @@ pub enum MmemoError {
     #[error("Not a directory: {0}")]
     MemoDirNotDirectory(PathBuf),
 
-    #[error("Memo search not found: {query}")]
-    MemoNotFound { query: String },
-
     #[error("Invalid arguments: {message}")]
     InvalidArgs { message: String },
 }
