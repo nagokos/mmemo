@@ -59,7 +59,7 @@ jobs:
           echo "ARCHIVE_FILE=$ARCHIVE_FILE" >> $GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: mmemo_${{ matrix.target }}
           path: ${{ env.ARCHIVE_FILE }}
